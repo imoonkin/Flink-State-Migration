@@ -230,6 +230,7 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 		if (totalNumberOfInputChannels == 1) {
 			if (barrierId > currentCheckpointId) {
 				// new checkpoint
+				Thread.currentThread().setName(trimeThreadName(Thread.currentThread().getName())+"#"+receivedBarrier.getId());
 				currentCheckpointId = barrierId;
 				notifyCheckpoint(receivedBarrier);
 			}
@@ -288,9 +289,19 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 					receivedBarrier.getTimestamp());
 			}
 
+			//System.out.println("Align=>"+receivedBarrier.getId()+" "+Thread.currentThread().getName());
+			//Modified
+			Thread.currentThread().setName(trimeThreadName(Thread.currentThread().getName())+"#"+receivedBarrier.getId());
+
 			releaseBlocksAndResetBarriers();
 			notifyCheckpoint(receivedBarrier);
 		}
+	}
+	//Modified
+	private String trimeThreadName(String s) {
+		int index=s.indexOf('#');
+		if (index>=0) return s.substring(0, Math.min(s.length(), index));
+		else return s;
 	}
 
 	private void processCancellationBarrier(CancelCheckpointMarker cancelBarrier) throws Exception {

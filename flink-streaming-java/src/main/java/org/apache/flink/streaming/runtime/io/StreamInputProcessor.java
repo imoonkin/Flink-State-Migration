@@ -200,6 +200,8 @@ public class StreamInputProcessor<IN> {
 							numRecordsIn.inc();
 							streamOperator.setKeyContextElement1(record);
 							streamOperator.processElement(record);
+							//Modified
+							//System.out.println(Thread.currentThread().getId()+" "+streamOperator.getOperatorID());
 						}
 						return true;
 					}
@@ -207,6 +209,12 @@ public class StreamInputProcessor<IN> {
 			}
 
 			final BufferOrEvent bufferOrEvent = barrierHandler.getNextNonBlocked();
+
+
+			/*Tuple2<Integer, Integer> tmpt2=new Tuple2<Integer, Integer>(0, 1);
+			if (record.getValue().getClass().isInstance(tmpt2.getClass()))
+				streamOperator.processElement(new StreamRecord<IN>((IN)new Tuple2<Integer, Integer>(0, 1)));
+			*/
 			if (bufferOrEvent != null) {
 				if (bufferOrEvent.isBuffer()) {
 					currentChannel = bufferOrEvent.getChannelIndex();
