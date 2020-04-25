@@ -230,7 +230,7 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 		if (totalNumberOfInputChannels == 1) {
 			if (barrierId > currentCheckpointId) {
 				// new checkpoint
-				Thread.currentThread().setName(trimeThreadName(Thread.currentThread().getName())+"#"+receivedBarrier.getId());
+				Thread.currentThread().setName(trimeThreadName(Thread.currentThread().getName())+"#"+barrierId);
 				currentCheckpointId = barrierId;
 				notifyCheckpoint(receivedBarrier);
 			}

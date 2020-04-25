@@ -1,5 +1,6 @@
 package org.apache.flink.coordinator;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.app.ClientServerProtocol;
 
 import java.io.*;
@@ -9,10 +10,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MigrationServer implements Runnable{
-	static ArrayList<HashMap<Integer, Integer>> mapList;
+	static ArrayList<HashMap<Integer, Tuple2<Integer, String>>> mapList;
 	static PFConstructor pfc;
-	private MigrationServer() {
-		pfc=new PFConstructor();
+	MigrationServer(PFConstructor pfc) {
+		MigrationServer.pfc =pfc;
 	}
 	@Override
 	public void run() {
@@ -22,18 +23,14 @@ public class MigrationServer implements Runnable{
 
 		ServerSocket serverSocket;
 		try {
-			serverSocket = new ServerSocket(ClientServerProtocol.port);
+			serverSocket = new ServerSocket(ClientServerProtocol.portMigration);
 			while(true) {
 				Socket socket = serverSocket.accept();
 				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 				String cli = ois.readUTF();
-				if (cli.contains(ClientServerProtocol.downStreamStart)) {
+				if (cli.contains(ClientServerProtocol.downStreamMigrationStart)) {
 					new Thread(new DownStreamHandler(ois, oos, socket))
-					.start();
-				} else if (cli.contains(ClientServerProtocol.upStreamStart)){
-					//System.out.println("UpStream");
-					new Thread(new UpStreamHandler(ois, oos, socket))
 					.start();
 				}
 			}
@@ -42,32 +39,9 @@ public class MigrationServer implements Runnable{
 		}
 	}
 	public static void main(String[] args) throws Exception{
-		Thread t=new Thread(new MigrationServer());
+		Thread t=new Thread(new MigrationServer(new PFConstructor()));
 		t.start();
 		t.join();
-	}
-}
-
-class UpStreamHandler implements Runnable{
-	private Socket socket;
-	private ObjectInputStream ois;
-	private ObjectOutputStream oos;
-	UpStreamHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s) {
-		this.socket =s;
-		this.oos=oos;
-		this.ois=ois;
-	}
-	@Override
-	public void run() {
-		//System.out.println("UpStreamHandler");
-		try {
-			oos.writeObject(MigrationServer.pfc.getPF());
-			//System.out.println("wrote");
-			oos.flush();
-			socket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 	}
 }
 
@@ -79,27 +53,34 @@ class DownStreamHandler implements Runnable{
 	DownStreamHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s) throws IOException {
 		this.oos=oos;
 		this.ois=ois;
-		cliIndex=ois.readInt();
 		socket=s;
 	}
 	@Override
 	public void run() {
+		try {
+			cliIndex=ois.readInt();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		//System.out.println("migration thread");
 		while(true){
 			try {
 				String cmd=ois.readUTF();
 				if (cmd.contains(ClientServerProtocol.downStreamPull)) { //partition function & hash map
 					System.out.println("downStream: "+cliIndex+" pulling");
 
-					oos.writeObject(MigrationServer.pfc.getPF());
 					oos.writeObject(MigrationServer.mapList.get(cliIndex));
+					oos.flush();
 					MigrationServer.mapList.get(cliIndex).clear();
 				} else if (cmd.contains(ClientServerProtocol.downStreamPush)) {
 					System.out.println("downStream: "+cliIndex+" pushing");
 
 					int ind=ois.readInt();
 					Integer key=(Integer)ois.readObject();
-					Integer value=(Integer)ois.readObject();
-					MigrationServer.mapList.get(ind).merge(key, value, (localkey, localvalue)-> localvalue+value);
+					Tuple2<Integer, String> value=(Tuple2<Integer, String>)ois.readObject();
+
+					MigrationServer.mapList.get(ind).merge(key, value,
+						(v1, v2) -> Tuple2.of(v1.f0+v2.f0, v1.f1 + v2.f1));
 				} else if (cmd.contains(ClientServerProtocol.downStreamClose)) {
 					socket.close();
 					System.out.println("downStream: "+cliIndex+" closed");

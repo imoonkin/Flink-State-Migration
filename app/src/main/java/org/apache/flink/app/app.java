@@ -19,6 +19,7 @@
 package org.apache.flink.app;
 
 	import org.apache.flink.api.common.functions.FlatMapFunction;
+	import org.apache.flink.api.java.tuple.Tuple3;
 	import org.apache.flink.configuration.Configuration;
 	import org.apache.flink.streaming.api.CheckpointingMode;
 	import org.apache.flink.streaming.api.windowing.time.Time;
@@ -69,11 +70,14 @@ public class app {
 		 * http://flink.apache.org/docs/latest/apis/streaming/index.html
 		 *
 		 */
-		DataStream<Tuple2<Integer, Integer>> dataStream = env
+
+
+		DataStream<Tuple3<Integer, Integer, String>> dataStream = env
 			.socketTextStream("localhost", 9999).setParallelism(1)
+			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
+			.flatMap(new SkewnessDetector<Tuple2<Integer, String>>()).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			//
 			.flatMap(new DownStreamUDF()).setParallelism(2)
 			.keyBy(0)
 			.timeWindow(Time.seconds(5))
@@ -83,11 +87,18 @@ public class app {
 		// execute program
 		env.execute("Flink Streaming Java API Skeleton");
 	}
-	public static class Splitter implements FlatMapFunction<String, Tuple2<Integer, Integer>> {
+	public static class Splitter implements FlatMapFunction<Tuple2<Integer, String>, Tuple3<Integer, Integer, String>> {
 		@Override
-		public void flatMap(String sentence, Collector<Tuple2<Integer, Integer>> out) throws Exception {
-			for (String word: sentence.split(" ")) {
-				out.collect(new Tuple2<Integer, Integer>(word.length(), 1));
+		public void flatMap(Tuple2<Integer, String> in, Collector<Tuple3<Integer, Integer, String>> out) throws Exception {
+				out.collect(new Tuple3<Integer, Integer, String>(in.f0, 1, in.f1.toUpperCase()));
+		}
+	}
+
+	public static class KeyGen implements FlatMapFunction<String, Tuple2<Integer, String>> {
+		@Override
+		public void flatMap(String s, Collector<Tuple2<Integer, String>> out) throws Exception {
+			for (String word: s.split(" ")) {
+				out.collect(new Tuple2<Integer, String>(word.length(), s));
 			}
 		}
 	}

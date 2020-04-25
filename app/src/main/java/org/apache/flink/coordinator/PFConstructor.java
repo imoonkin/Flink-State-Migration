@@ -9,7 +9,14 @@ class PFConstructor {
 		return pf;
 	}
 	void updatePF() {
-
+		if (pf.getYu()==0) pf.setYu(1);
+		else pf.setYu(0);
 	}
 
+	public static void main(String[] args) {
+		PFConstructor p=new PFConstructor();
+		System.out.println(p.getPF().partition(3, 10));
+		p.updatePF();
+		System.out.println(p.getPF().partition(3, 10));
+	}
 }
