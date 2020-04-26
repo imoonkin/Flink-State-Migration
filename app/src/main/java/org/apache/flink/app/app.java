@@ -19,6 +19,7 @@
 package org.apache.flink.app;
 
 	import org.apache.flink.api.common.functions.FlatMapFunction;
+	import org.apache.flink.api.java.functions.KeySelector;
 	import org.apache.flink.api.java.tuple.Tuple3;
 	import org.apache.flink.configuration.Configuration;
 	import org.apache.flink.streaming.api.CheckpointingMode;
@@ -75,10 +76,11 @@ public class app {
 		DataStream<Tuple3<Integer, Integer, String>> dataStream = env
 			.socketTextStream("localhost", 9999).setParallelism(1)
 			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
-			.flatMap(new SkewnessDetector<Tuple2<Integer, String>>()).setParallelism(1)
+			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS())).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			.flatMap(new DownStreamUDF()).setParallelism(2)
+			.flatMap(new DownStreamUDF()).setParallelism(ClientServerProtocol.downStreamParallelism)
+			//.flatMap(new Tail<>()).setParallelism(1)
 			.keyBy(0)
 			.timeWindow(Time.seconds(5))
 			.sum(1).setParallelism(1);
@@ -87,19 +89,26 @@ public class app {
 		// execute program
 		env.execute("Flink Streaming Java API Skeleton");
 	}
-	public static class Splitter implements FlatMapFunction<Tuple2<Integer, String>, Tuple3<Integer, Integer, String>> {
-		@Override
-		public void flatMap(Tuple2<Integer, String> in, Collector<Tuple3<Integer, Integer, String>> out) throws Exception {
-				out.collect(new Tuple3<Integer, Integer, String>(in.f0, 1, in.f1.toUpperCase()));
+
+}
+class KeyGen implements FlatMapFunction<String, Tuple2<Integer, String>> {
+	@Override
+	public void flatMap(String s, Collector<Tuple2<Integer, String>> out) throws Exception {
+		for (String word: s.split(" ")) {
+			out.collect(new Tuple2<Integer, String>(word.length(), s));
 		}
 	}
+}
+class KS implements KeySelector<Tuple2<Integer, String>, Integer> {
+	@Override
+	public Integer getKey(Tuple2<Integer, String> value) throws Exception {
+		return value.f0;
+	}
+}
 
-	public static class KeyGen implements FlatMapFunction<String, Tuple2<Integer, String>> {
-		@Override
-		public void flatMap(String s, Collector<Tuple2<Integer, String>> out) throws Exception {
-			for (String word: s.split(" ")) {
-				out.collect(new Tuple2<Integer, String>(word.length(), s));
-			}
-		}
+class Splitter implements FlatMapFunction<Tuple2<Integer, String>, Tuple3<Integer, Integer, String>> {
+	@Override
+	public void flatMap(Tuple2<Integer, String> in, Collector<Tuple3<Integer, Integer, String>> out) throws Exception {
+		out.collect(new Tuple3<Integer, Integer, String>(in.f0, 1, in.f1.toUpperCase()));
 	}
 }

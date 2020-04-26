@@ -11,7 +11,7 @@ import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.LinkedList;
 
 public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, String>, Tuple3<Integer, Integer, String>> {
 
@@ -25,7 +25,7 @@ public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, 
 		System.out.println("The Window is Inited");
 	}
 	@Override
-	public void flatMap(Tuple3<Integer, Integer, String> input, Collector<Tuple3<Integer, Integer, String>> out) throws Exception {
+	public void flatMap(Tuple3<Integer, Integer, String> input, Collector<Tuple3<Integer, Integer, String>> out) {
 
 		System.out.print("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" ");
 		int index=Thread.currentThread().getName().indexOf('#');
@@ -58,7 +58,17 @@ public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, 
 			oos.flush();
 			String cmd=ois.readUTF();
 			if (cmd.contains(ClientServerProtocol.downStreamMetricStart)) {
+				int entireHotKeyNum=ois.readInt();
+				LinkedList<Integer> localHotKey=new LinkedList<>();
+				for (int i = 0; i < entireHotKeyNum; i++){
+					Integer tmp_key=(Integer) ois.readObject();
+					if (m.containsKey(tmp_key)) localHotKey.add(tmp_key);
+				}
 
+				oos.writeInt(getRuntimeContext().getIndexOfThisSubtask());
+				oos.writeInt(localHotKey.size());
+				for (Integer i : localHotKey) oos.writeObject(i);
+				oos.flush();
 			}
 			if (cmd.contains(ClientServerProtocol.downStreamMigrationStart)) {
 				Partitioner<Integer> partitionFunction = (Partitioner<Integer>) ois.readObject();
@@ -74,8 +84,8 @@ public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, 
 				HashMap<Integer, Tuple2<Integer, String>> incomingMap = (HashMap<Integer, Tuple2<Integer, String>>) ois.readObject();
 				downStreamPush(partitionFunction, oos);
 				downStreamMerge(incomingMap);
-
 			}
+
 			socket.close();
 		} catch (Exception e) {
 			System.out.println("downStream on barrier error");

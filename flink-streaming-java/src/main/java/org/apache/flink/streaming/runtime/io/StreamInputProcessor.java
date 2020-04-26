@@ -210,6 +210,7 @@ public class StreamInputProcessor<IN> {
 
 			final BufferOrEvent bufferOrEvent = barrierHandler.getNextNonBlocked();
 
+			//System.out.println(Thread.currentThread().getName()+"==="+ streamOperator.getOperatorID());
 
 			/*Tuple2<Integer, Integer> tmpt2=new Tuple2<Integer, Integer>(0, 1);
 			if (record.getValue().getClass().isInstance(tmpt2.getClass()))

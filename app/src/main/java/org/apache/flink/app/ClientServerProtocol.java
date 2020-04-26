@@ -19,5 +19,9 @@ public class ClientServerProtocol {
 	public static String sourceStart="sourceStart";
 	public static String sourceEnd="sourceEnd";
 
+	public static String tailStart = "tailStart";
+
+	public static int downStreamParallelism=2;
+
 
 }

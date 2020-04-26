@@ -292,7 +292,7 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 			//System.out.println("Align=>"+receivedBarrier.getId()+" "+Thread.currentThread().getName());
 			//Modified
 			Thread.currentThread().setName(trimeThreadName(Thread.currentThread().getName())+"#"+receivedBarrier.getId());
-
+			//System.out.println("Aligned===>"+totalNumberOfInputChannels+" "+ Thread.currentThread().getName());
 			releaseBlocksAndResetBarriers();
 			notifyCheckpoint(receivedBarrier);
 		}

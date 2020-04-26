@@ -3,20 +3,39 @@ package org.apache.flink.coordinator;
 import org.apache.flink.api.common.functions.Partitioner;
 
 import java.io.Serializable;
-import java.util.HashSet;
+import java.util.HashMap;
 
 public class MyPF<K> implements Serializable, Partitioner<K> {
-	private int yu=0;
+	private MyConsistentHash<K> hb;
+	private HashMap<K, Integer> hyperRoute;
+	MyPF() {
+		hyperRoute=new HashMap<>();
+		hb=new MyConsistentHash<>();
+	}
 	public int partition(K key, int n) {
-		int kk=key instanceof Integer ? ((Integer) key) : 0;
-		if (kk%2==yu)
-			return 0;
-		else return 1;
+		int tmp=ha(key);
+		if (tmp!=-1) return tmp;
+		return hb.hash(key);
 	}
-	void setYu(int y) {
-		yu=y;
+
+	int ha(K key) {
+		return hyperRoute.getOrDefault(key, -1);
 	}
-	int getYu() {
-		return yu;
+
+	void setHb(MyConsistentHash<K> cs) {
+		hb=cs;
+	}
+	MyConsistentHash<K> getHb() {
+		return hb;
+	}
+
+	HashMap<K, Integer> getHyperRoute() {
+		return hyperRoute;
+	}
+
+	void setHyperRoute(HashMap<K, Integer> route) {
+		hyperRoute=route;
 	}
 }
+
+

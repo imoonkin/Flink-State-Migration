@@ -1,16 +1,20 @@
 package org.apache.flink.app;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.coordinator.MyPF;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.*;
 
 public class Clitest {
 	public static void main(String[] args) throws Exception {
-		HashMap<Integer, Tuple2<Integer, String>> m=new HashMap<>(), incomingMap=new HashMap<>();
+		HashSet<Integer> s = new HashSet<Integer>();
+		s.add(1);s.add(2);s.add(5);s.add(3);
+		ArrayList<Integer> a = new ArrayList<>(s);
+		Iterator it=a.iterator();
+		while(it.hasNext()) System.out.println(it.next());
+		/*HashMap<Integer, Tuple2<Integer, String>> m=new HashMap<>(), incomingMap=new HashMap<>();
 		m.put(2, Tuple2.of(2, "AB AB "));
 		incomingMap.put(2, Tuple2.of(4, "AB AB AB AB "));
 		incomingMap.put(4, Tuple2.of(1, "ABCD "));

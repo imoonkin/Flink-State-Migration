@@ -38,11 +38,11 @@ public class MigrationServer implements Runnable{
 			e.printStackTrace();
 		}
 	}
-	public static void main(String[] args) throws Exception{
+	/*public static void main(String[] args) throws Exception{
 		Thread t=new Thread(new MigrationServer(new PFConstructor()));
 		t.start();
 		t.join();
-	}
+	}*/
 }
 
 class DownStreamHandler implements Runnable{
