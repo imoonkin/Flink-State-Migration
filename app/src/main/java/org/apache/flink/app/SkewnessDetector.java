@@ -75,11 +75,13 @@ class SpaceSaving<K> implements Serializable {
 		total=0;
 	}
 	HashMap<K, Integer> getHotKey() {
-
-		return hotKey;
+		HashMap<K, Integer> above20 = new HashMap<>();
+		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>0.25)
+			above20.put(entry.getKey(), entry.getValue());
+		return above20;
 	}
 	void addKey(K key) {
-		if (key instanceof Integer) if ((Integer) key == 1 || (Integer) key == 2) {
+		if (key instanceof Integer) {
 			hotKey.put(key, 1+hotKey.getOrDefault(key, 0));
 			total++;
 		}

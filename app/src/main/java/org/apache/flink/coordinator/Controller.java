@@ -48,7 +48,7 @@ public class Controller<K> implements Runnable{
 	}
 
 	public static void main(String[] args) throws Exception{
-		PFConstructor<Integer> pfc=new PFConstructor<>(50);
+		PFConstructor<Integer> pfc=new PFConstructor<Integer>(50, 1.3f);
 		Thread t=new Thread(new MigrationServer(pfc));
 		t.start();
 		Thread t1=new Thread(new Controller<Integer>(pfc));
@@ -88,6 +88,7 @@ class SourceCmd<K> implements Runnable {
 			oos.flush();
 			socket.close();
 			pfc.setHotKey(hotKey);
+			System.out.println("Source hot key : "+hotKey);
 			//pfc.updatePF();
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
@@ -173,13 +174,14 @@ class DownStreamCmd<K> implements Runnable {
 				for (int i=0; i<cnt; i++) hotKeyArray.add((K)ois.readObject());
 				System.out.println(index+" hot key "+hotKeyArray);
 				needUpdate=pfc.addMetric(index, hotKeyArray);  // updatePF called in addMetric
+				if (needUpdate) System.out.println("all Metric sent");
 			}
 			if (cmd.contains(ClientServerProtocol.downStreamMigrationStart)) {
 				oos.writeObject(pfc.getPF());
 				oos.flush();
 			}
 			socket.close();
-			if (needUpdate) pfc.updatePF();
+			if (needUpdate) pfc.updatePFnew();
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
