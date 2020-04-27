@@ -34,28 +34,31 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 			HashMap<K, Integer> curHK=spaceSaving.getHotKey();
 			barrierID = Integer.parseInt(Thread.currentThread().getName().substring(index + 1));
 			System.out.println("Detector: " + barrierID);
+			Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
+			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+			oos.writeUTF(ClientServerProtocol.sourceStart);
+			oos.writeInt(barrierID);
 			if (differentHK(curHK, barrierID)) { //in differentHK, barrierID>0 && barrierID%5==0 not needed
-				//send barrierID
-				Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
-				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-				oos.writeUTF(ClientServerProtocol.sourceStart);
-				oos.writeInt(barrierID);
-				//System.out.println("===Detected===");
-				//send hot key
-				oos.writeInt(curHK.size());
-				oos.writeInt(spaceSaving.getTotal());
+				oos.writeUTF(ClientServerProtocol.sourceHotKey);
 				oos.flush();
-				for (HashMap.Entry<K, Integer> entry : curHK.entrySet()) {
-					oos.writeObject(entry.getKey());
-					oos.writeInt(entry.getValue());
+				if (ois.readUTF().contains(ClientServerProtocol.sourceAcceptHotKey)) {
+					oos.writeInt(curHK.size());
+					oos.writeInt(spaceSaving.getTotal());
+					oos.flush();
+					for (HashMap.Entry<K, Integer> entry : curHK.entrySet()) {
+						oos.writeObject(entry.getKey());
+						oos.writeInt(entry.getValue());
+					}
+					oos.flush();
 				}
+
+			}else{
+				oos.writeUTF(ClientServerProtocol.sourceEnd);
 				oos.flush();
-
-				ois.readUTF(); //end
-				socket.close();
-
 			}
+			oos.flush();
+			socket.close();
 			Thread.currentThread().setName(Thread.currentThread().getName().substring(0, index));
 		}
 
@@ -68,6 +71,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 
 
 class SpaceSaving<K> implements Serializable {
+	//TODO: space saving
 	private HashMap<K, Integer> hotKey;
 	private int total;
 	SpaceSaving() {

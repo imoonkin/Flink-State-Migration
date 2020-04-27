@@ -17,11 +17,15 @@ public class ClientServerProtocol {
 	public static String upStreamMetricStart="upStreamMetricStart";
 
 	public static String sourceStart="sourceStart";
+	public static String sourceHotKey="sourceHotKey";
+	public static String sourceAcceptHotKey="sourceAcceptHotKey";
+	public static String sourceRejectHotKey="sourceRejectHotKey";
 	public static String sourceEnd="sourceEnd";
 
 	public static String tailStart = "tailStart";
 
 	public static int downStreamParallelism=2;
+	public static int chunkNum=2;
 
 
 }

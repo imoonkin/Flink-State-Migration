@@ -13,6 +13,11 @@ class PFConstructor<K> {
 	private final int maxParallelism;
 	private final float theta;
 	private int metricCnt=0;
+
+	private int state=0; // 0:idle, 1:metric, 2:migrating
+
+
+	MigrationSplitter<K> migrationSplitter;
 	PFConstructor(int maxP, float alpha) {
 		pf = new MyPF<K>();
 		metric = new ArrayList<>();
@@ -24,6 +29,8 @@ class PFConstructor<K> {
 		maxParallelism=maxP;
 		theta=(alpha*parallelism)/(alpha+parallelism-1)-1;
 		hk=new HashMap<>();
+		state=0;
+		migrationSplitter=new MigrationSplitter<>();
 	}
 	MyPF<K> getPF() {
 		return pf;
@@ -31,8 +38,8 @@ class PFConstructor<K> {
 
 	void updatePF() {
 		MyConsistentHash<K> newHb=new MyConsistentHash<>();
-		if (pf.getHb().getYu() == 0) newHb.setYu(1);
-		else newHb.setYu(0);
+		//if (pf.getHb().getYu() == 0) newHb.setYu(1);
+		//else newHb.setYu(0);
 
 		pf.setHb(newHb);
 
@@ -47,8 +54,8 @@ class PFConstructor<K> {
 	void updatePFnew() {
 		//new hb
 		MyConsistentHash<K> newHb=new MyConsistentHash<>();
-		if (pf.getHb().getYu() == 0) newHb.setYu(1);
-		else newHb.setYu(0);
+		//if (pf.getHb().getYu() == 0) newHb.setYu(1);
+		//else newHb.setYu(0);
 
 		//Algorithm 1 => new hyper route
 		Set<K> D_o = new HashSet<>(), D_a=new HashSet<>();
@@ -61,6 +68,7 @@ class PFConstructor<K> {
 		float m=0, mCeil=0;
 		for (K key : D_o) if (pf.partition(key, parallelism) != newHb.hash(key)) {
 			m += hk.get(key);
+			migrationSplitter.addKey(key, newHb.hash(key), hk.get(key));
 		}
 		for (K key:D_a) mCeil += newhk.containsKey(key) ? newhk.get(key) : hk.get(key);
 		HashMap<K, Integer> hyperRouteBuffer = new HashMap<>();
@@ -79,7 +87,10 @@ class PFConstructor<K> {
 					j=l; u=cur_u;
 				}
 			}
-			if (j!=h) m+=newhk.get(key);
+			if (j!=h) {
+				m+=newhk.get(key);
+				migrationSplitter.addKey(key, j, newhk.get(key));
+			}
 			hyperRouteBuffer.put(key, j);
 			operatorLoad.set(j, newhk.get(key) + operatorLoad.get(j));
 		}
@@ -134,4 +145,28 @@ class PFConstructor<K> {
 		return metricCnt == parallelism;
 	}
 
+	boolean isIdle() {
+		return state == 0;
+	}
+	boolean isMetric() {
+		return state == 1;
+	}
+	boolean isMigrating() {
+		return state == 2;
+	}
+	void setIdle() {
+		state = 0;
+	}
+	void setMetric() {
+		state = 1;
+	}
+	void setMigrating() {
+		state = 2;
+	}
+	boolean hasNext() {
+		return migrationSplitter.hasNextHyperRoute();
+	}
+	void updateToNext() {
+		pf.setHyperRoute(migrationSplitter.nextHyperRoute());
+	}
 }

@@ -6,6 +6,34 @@ import java.util.HashMap;
 
 public class ServerTest {
 	public static void main(String[] args) {
+		MigrationSplitter<Integer> ms=new MigrationSplitter<>();
+		ms.addKey(0, 0, 0.3f);
+		ms.addKey(1, 0, 0.25f);
+		ms.addKey(2, 1, 0.4f);
+		ms.addKey(3, 0, 0.03f);
+		HashMap<Integer, Integer> ori=new HashMap<>();
+		ori.put(3, 1);
+		ori.put(2, 1);
+		ori.put(1, 0);
+		ori.put(0, 1);
+		ms.split(ori);
+		while (ms.hasNextHyperRoute()) {
+			System.out.println(ms.nextHyperRoute());
+		}
+		System.out.println("=======");
+		ms.addKey(0, 1, 0.1f);
+		ms.addKey(1, 1, 0.25f);
+		ms.addKey(2, 0, 0.05f);
+		ms.addKey(3, 0, 0.15f);
+		ori=new HashMap<>();
+		ori.put(3, 1);
+		ori.put(2, 1);
+		ori.put(1, 0);
+		ori.put(0, 1);
+		ms.split(ori);
+		while (ms.hasNextHyperRoute()) {
+			System.out.println(" "+ms.nextHyperRoute());
+		}
 
 		/*
 		PFConstructor<Integer> pfc=new PFConstructor<>(40, 1.3f);

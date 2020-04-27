@@ -48,7 +48,7 @@ public class Controller<K> implements Runnable{
 	}
 
 	public static void main(String[] args) throws Exception{
-		PFConstructor<Integer> pfc=new PFConstructor<Integer>(50, 1.3f);
+		PFConstructor<Integer> pfc= new PFConstructor<>(50, 1.3f);
 		Thread t=new Thread(new MigrationServer(pfc));
 		t.start();
 		Thread t1=new Thread(new Controller<Integer>(pfc));
@@ -74,22 +74,31 @@ class SourceCmd<K> implements Runnable {
 		pfc=pf;
 	}
 	@Override
-	public void run() {
+	public void run() { // source client needs to wait for server to complete
 		try {
-			int hotKeyNum=ois.readInt(), total=ois.readInt();
-			HashMap<K, Float> hotKey = new HashMap<>();
-			for (int i = 0; i < hotKeyNum; i++) {
-				K tmp_key=(K) ois.readObject();
-				int tmp_value = ois.readInt();
-				hotKey.put(tmp_key, ((float)tmp_value)/total);
+			String request=ois.readUTF();
+
+			if (pfc.isMetric()) pfc.setMigrating();
+			else if (pfc.isMigrating()) {
+				if (pfc.hasNext()) pfc.updateToNext();
+				else pfc.setIdle();
+			} else if (request.contains(ClientServerProtocol.sourceHotKey)) {
+				oos.writeUTF(ClientServerProtocol.sourceAcceptHotKey);
+				oos.flush();
+				int hotKeyNum = ois.readInt(), total = ois.readInt();
+				HashMap<K, Float> hotKey = new HashMap<>();
+				for (int i = 0; i < hotKeyNum; i++) {
+					K tmp_key = (K) ois.readObject();
+					int tmp_value = ois.readInt();
+					hotKey.put(tmp_key, ((float) tmp_value) / total);
+				}
+				pfc.setHotKey(hotKey);
+				pfc.setMetric();
+				System.out.println("Source hot key : "+hotKey);
 			}
-			//System.out.println("===PF UPDATED==="+pfc.getPF().partition(3, 10));
-			oos.writeUTF(ClientServerProtocol.sourceEnd);
 			oos.flush();
+			//System.out.println("===PF UPDATED==="+pfc.getPF().partition(3, 10));
 			socket.close();
-			pfc.setHotKey(hotKey);
-			System.out.println("Source hot key : "+hotKey);
-			//pfc.updatePF();
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -118,8 +127,8 @@ class UpStreamCmd implements Runnable {
 		try {
 			barrierID = ois.readInt();
 			String cmd="";
-			if (barrierID==0 || (startID<=barrierID && barrierID<=endID)) cmd=cmd+ClientServerProtocol.upStreamFetch;
-			if (startID<=barrierID && barrierID<=endID) cmd=cmd+ClientServerProtocol.upStreamMetricStart;
+			if (barrierID==0 || pfc.isMigrating()) cmd=cmd+ClientServerProtocol.upStreamFetch;
+			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.upStreamMetricStart;
 			oos.writeUTF(cmd);
 			oos.flush();
 			if (cmd.contains(ClientServerProtocol.upStreamFetch)) {
@@ -158,8 +167,8 @@ class DownStreamCmd<K> implements Runnable {
 		try {
 			barrierID = ois.readInt();
 			String cmd="";
-			if (startID+1<=barrierID && barrierID<=endID)	cmd=cmd+ClientServerProtocol.downStreamMigrationStart;
-			if (startID==barrierID) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
+			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamMigrationStart;
+			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
 			oos.writeUTF(cmd);
 			oos.flush();
 			boolean needUpdate=false;
