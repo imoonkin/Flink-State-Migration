@@ -50,7 +50,7 @@ class DownStreamHandler implements Runnable{
 	private Socket socket;
 	private ObjectInputStream ois;
 	private ObjectOutputStream oos;
-	DownStreamHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s) throws IOException {
+	DownStreamHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s){
 		this.oos=oos;
 		this.ois=ois;
 		socket=s;
@@ -67,13 +67,13 @@ class DownStreamHandler implements Runnable{
 			try {
 				String cmd=ois.readUTF();
 				if (cmd.contains(ClientServerProtocol.downStreamPull)) { //partition function & hash map
-					System.out.println("downStream: "+cliIndex+" pulling");
+					//System.out.println("downStream: "+cliIndex+" pulling");
 
 					oos.writeObject(MigrationServer.mapList.get(cliIndex));
 					oos.flush();
 					MigrationServer.mapList.get(cliIndex).clear();
 				} else if (cmd.contains(ClientServerProtocol.downStreamPush)) {
-					System.out.println("downStream: "+cliIndex+" pushing");
+					//System.out.println("downStream: "+cliIndex+" pushing");
 
 					int ind=ois.readInt();
 					Integer key=(Integer)ois.readObject();
@@ -81,9 +81,10 @@ class DownStreamHandler implements Runnable{
 
 					MigrationServer.mapList.get(ind).merge(key, value,
 						(v1, v2) -> Tuple2.of(v1.f0+v2.f0, v1.f1 + v2.f1));
+					System.out.println("Server get "+key+" "+value+" from "+cliIndex);
 				} else if (cmd.contains(ClientServerProtocol.downStreamClose)) {
 					socket.close();
-					System.out.println("downStream: "+cliIndex+" closed");
+					//System.out.println("downStream: "+cliIndex+" closed");
 					break;
 				}
 			} catch (IOException | ClassNotFoundException e) {

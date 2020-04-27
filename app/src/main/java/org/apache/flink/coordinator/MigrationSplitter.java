@@ -9,10 +9,11 @@ import java.util.PriorityQueue;
 class MigrationSplitter<K> {
 	private PriorityQueue<Tuple3<K, Integer, Float>> queue;
 	private int totalChunkNum, curChunkNum; //TODO: not accurate;
-	private HashMap<K, Integer> curRoute;
+	private HashMap<K, Integer> curRoute, finalHyperRoute;
 	private float totalFrequency, perChunkFrequency;
 	private int delay;
 	private boolean inProgress;
+
 	MigrationSplitter() {
 		queue=new PriorityQueue<>((x, y) -> Float.compare(y.f2, x.f2));
 		totalChunkNum =ClientServerProtocol.chunkNum;
@@ -20,14 +21,18 @@ class MigrationSplitter<K> {
 		totalFrequency=0;
 		delay=1;
 		inProgress=false;
+		curRoute = new HashMap<>();
 	}
 
-	void addKey(K key, int pos, float frequency) { // new key, new pos
-		queue.offer(Tuple3.of(key, pos, frequency));
+	void addKey(K key, int oriPos, int newPos, float frequency) { // new key, old pos, new pos
+		if (oriPos==newPos) System.out.println("WARNING: same pos key added!!!");
+		curRoute.put(key, oriPos);
+		queue.offer(Tuple3.of(key, newPos, frequency));
 		totalFrequency+=frequency;
 	}
-	void split(HashMap<K, Integer> oriPosition) { // original pos
-		curRoute=oriPosition;
+
+	void split(HashMap<K, Integer> finalHyperRoute) { // original pos
+		this.finalHyperRoute=finalHyperRoute;
 		totalChunkNum =ClientServerProtocol.chunkNum;
 		curChunkNum=0;
 		inProgress=true;
@@ -44,6 +49,7 @@ class MigrationSplitter<K> {
 			curChunkNum=0;
 			delay=1;
 			inProgress=false;
+			curRoute.clear();
 			return false;
 		}
 	}
@@ -56,7 +62,7 @@ class MigrationSplitter<K> {
 			curFrequency += head.f2;
 		} else if (delay>0){
 			delay--;
-			return curRoute;
+			return finalHyperRoute;
 		} else {
 			System.out.println("ERROR: Migration Splitter required empty queue");
 		}
@@ -65,7 +71,6 @@ class MigrationSplitter<K> {
 			curRoute.put(head.f0, head.f1);
 			curFrequency += head.f2;
 		}
-
 		//System.out.println(curChunkNum+" "+ curFrequency+" q:"+queue+" "+curRoute);
 		return curRoute;
 	}

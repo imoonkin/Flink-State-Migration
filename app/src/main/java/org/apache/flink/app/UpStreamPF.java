@@ -55,7 +55,7 @@ public class UpStreamPF<K> implements Partitioner<K> {
 			fetchPF(barrierID);
 			Thread.currentThread().setName(Thread.currentThread().getName().substring(0, index));
 		}
-		System.out.println(key+"=>"+pf.partition(key, numPartitions));
+		//System.out.println(key+"=>"+pf.partition(key, numPartitions));
 		return pf.partition(key, numPartitions);
 	}
 

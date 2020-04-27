@@ -36,26 +36,9 @@ class PFConstructor<K> {
 		return pf;
 	}
 
-	void updatePF() {
-		MyConsistentHash<K> newHb=new MyConsistentHash<>();
-		//if (pf.getHb().getYu() == 0) newHb.setYu(1);
-		//else newHb.setYu(0);
-
-		pf.setHb(newHb);
-
-		System.out.println("\nNEW HOT KEY : "+newhk+"\n");
-		for (int i=0; i<parallelism; i++) System.out.println(metric.get(i));
-
-		hk=newhk;
-		for (int i=0; i<maxParallelism; i++) metric.get(i).clear();
-		metricCnt=-1;
-	}
-
 	void updatePFnew() {
 		//new hb
 		MyConsistentHash<K> newHb=new MyConsistentHash<>();
-		//if (pf.getHb().getYu() == 0) newHb.setYu(1);
-		//else newHb.setYu(0);
 
 		//Algorithm 1 => new hyper route
 		Set<K> D_o = new HashSet<>(), D_a=new HashSet<>();
@@ -66,9 +49,12 @@ class PFConstructor<K> {
 		D_o.removeAll(newhk.keySet());
 		D_a.addAll(newhk.keySet());
 		float m=0, mCeil=0;
-		for (K key : D_o) if (pf.partition(key, parallelism) != newHb.hash(key)) {
-			m += hk.get(key);
-			migrationSplitter.addKey(key, newHb.hash(key), hk.get(key));
+		for (K key : D_o) {
+			int oriPos=pf.partition(key, parallelism);
+			if (oriPos != newHb.hash(key)) {
+				m += hk.get(key);
+				migrationSplitter.addKey(key, oriPos, newHb.hash(key), hk.get(key));
+			}
 		}
 		for (K key:D_a) mCeil += newhk.containsKey(key) ? newhk.get(key) : hk.get(key);
 		HashMap<K, Integer> hyperRouteBuffer = new HashMap<>();
@@ -82,23 +68,23 @@ class PFConstructor<K> {
 				float a=balancePenalty(operatorLoad, key, l, hyperRouteBuffer.size()),
 					r=migrationPenalty(m, newhk.get(key), l, h, mCeil),
 					cur_u=computeUtil(a, r);
-				System.out.println("   to "+l+" "+cur_u);
+				//System.out.println("   to "+l+" "+cur_u);
 				if (cur_u < u) {
 					j=l; u=cur_u;
 				}
 			}
+			System.out.println(key+"==>"+j);
 			if (j!=h) {
 				m+=newhk.get(key);
-				migrationSplitter.addKey(key, j, newhk.get(key));
+				migrationSplitter.addKey(key, h, j, newhk.get(key));
 			}
 			hyperRouteBuffer.put(key, j);
 			operatorLoad.set(j, newhk.get(key) + operatorLoad.get(j));
 		}
 
 		//update MyPF
-		pf.setHyperRoute(hyperRouteBuffer);
 		pf.setHb(newHb);
-
+		migrationSplitter.split(hyperRouteBuffer);
 		hk=newhk;
 		for (int i=0; i<maxParallelism; i++) {
 			metric.get(i).clear();
@@ -115,7 +101,7 @@ class PFConstructor<K> {
 			min = Math.min(min, operatorLoad.get(i));
 			avg += operatorLoad.get(i);
 		}
-		System.out.println(d+"=>"+l+"");
+		//System.out.println(d+"=>"+l+"");
 		operatorLoad.set(l, operatorLoad.get(l)-newhk.get(d));
 		avg = cnt == 0 ? 1 : avg / cnt;
 		return (max-min)/(theta*avg);

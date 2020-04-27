@@ -79,7 +79,7 @@ public class app {
 			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS())).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			.flatMap(new DownStreamUDF()).setParallelism(ClientServerProtocol.downStreamParallelism)
+			.flatMap(new DownStream()).setParallelism(ClientServerProtocol.downStreamParallelism)
 			//.flatMap(new Tail<>()).setParallelism(1)
 			.keyBy(0)
 			.timeWindow(Time.seconds(5))

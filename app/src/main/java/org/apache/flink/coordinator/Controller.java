@@ -33,6 +33,7 @@ public class Controller<K> implements Runnable{
 				if (cli.contains(ClientServerProtocol.sourceStart)) {
 					// receive hot key, send to PF constructor,  set barrier seq(startID, endID=startID+3),
 					startID = ois.readInt();
+					System.out.println("# "+startID);
 					endID=startID+3;
 					new Thread(new SourceCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
 				} else if (cli.contains(ClientServerProtocol.upStreamStart)) {
@@ -48,7 +49,7 @@ public class Controller<K> implements Runnable{
 	}
 
 	public static void main(String[] args) throws Exception{
-		PFConstructor<Integer> pfc= new PFConstructor<>(50, 1.3f);
+		PFConstructor<Integer> pfc= new PFConstructor<>(30, 1.3f);
 		Thread t=new Thread(new MigrationServer(pfc));
 		t.start();
 		Thread t1=new Thread(new Controller<Integer>(pfc));
@@ -78,10 +79,17 @@ class SourceCmd<K> implements Runnable {
 		try {
 			String request=ois.readUTF();
 
-			if (pfc.isMetric()) pfc.setMigrating();
-			else if (pfc.isMigrating()) {
-				if (pfc.hasNext()) pfc.updateToNext();
-				else pfc.setIdle();
+			if (pfc.isMetric()) {
+				pfc.setMigrating();
+				System.out.println("setMigrating");
+			} else if (pfc.isMigrating()) {
+				if (pfc.hasNext()) {
+					pfc.updateToNext();
+					System.out.println("set updateToNext");
+				}else {
+					pfc.setIdle();
+					System.out.println("set Idle");
+				}
 			} else if (request.contains(ClientServerProtocol.sourceHotKey)) {
 				oos.writeUTF(ClientServerProtocol.sourceAcceptHotKey);
 				oos.flush();
@@ -219,7 +227,7 @@ class TailCmd<K> implements Runnable {
 			barrierID=ois.readInt();
 			System.out.println("Ends #"+barrierID);
 			if (barrierID==startID){
-				pfc.updatePF();
+				pfc.updatePFnew();
 				System.out.println("pfc updated ");
 			}
 
