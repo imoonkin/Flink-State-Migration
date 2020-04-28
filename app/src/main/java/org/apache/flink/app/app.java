@@ -47,8 +47,15 @@ public class app {
 		// set up the streaming execution environment
 		Configuration conf=new Configuration();
 		//conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		//StreamExecutionEnvironment.getExecutionEnvironment();
+
+		/*
+		first one for local test;
+		second one for cluster;
+		 */
+		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+
 		env.enableCheckpointing(5000);
 		env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 		env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
