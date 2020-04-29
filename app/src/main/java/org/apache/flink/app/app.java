@@ -52,8 +52,8 @@ public class app {
 		first one for local test;
 		second one for cluster;
 		 */
-		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 
 		env.enableCheckpointing(5000);

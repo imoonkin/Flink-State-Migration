@@ -23,6 +23,10 @@ interface Combiner<T> {
 	T addAll(T t1, T t2);
 }
 
+interface SizeCalculator<K, V> {
+	int size(K key, V value);
+}
+
 
 public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunction<IN, OUT> {
 
@@ -34,14 +38,19 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 	private KeySelector<IN, K> keySelector;
 	private KeySelector<IN, V> valueSelector;
 	private Combiner<V> combiner;
+	private SizeCalculator<K, V> sizeCalculator;
 	private V defaultV;
+	private int stateSize;
+
 	AbstractDownStream(KeySelector<IN, K> keySelector, KeySelector<IN, V> valueSelector,
-					   Combiner<V> combiner, V defaultV){
+					   Combiner<V> combiner, SizeCalculator<K, V> sizeCalculator, V defaultV) {
 		System.out.println("The Window is Inited");
-		this.keySelector=keySelector;
-		this.valueSelector=valueSelector;
-		this.combiner=combiner;
-		this.defaultV=defaultV;
+		this.keySelector = keySelector;
+		this.valueSelector = valueSelector;
+		this.combiner = combiner;
+		this.sizeCalculator=sizeCalculator;
+		this.defaultV = defaultV;
+		this.stateSize = 0;
 	}
 
 	@Override
@@ -51,15 +60,15 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 		int index=Thread.currentThread().getName().indexOf('#');
 		if ( index >= 0) {
 			int barrierID=Integer.parseInt(Thread.currentThread().getName().substring(index+1));
-			System.out.print("#"+barrierID);
+			//System.out.print("#"+barrierID);
 			downStreamOnBarrier(barrierID);
 			Thread.currentThread().setName(Thread.currentThread().getName().substring(0, index));
 		}
 
 		m.put(selectKey(input),
 			addOne(m.getOrDefault(selectKey(input), defaultV),selectValue(input)));
-			//Modified default value suit V
-		System.out.println("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" "+m);
+		stateSize+=selectSize(selectKey(input), selectValue(input));
+		System.out.println("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" ["+stateSize+"] "+m);
 
 		udf(input, out);
 	}
@@ -85,6 +94,9 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 	private V addAll(V v1, V v2) {
 		return combiner.addAll(v1, v2);
 	}
+	private int selectSize(K key, V value) {
+		return sizeCalculator.size(key, value);
+	}
 	private void downStreamOnBarrier(int barrierID) {
 		try {
 			Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
@@ -92,6 +104,8 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 			oos.writeUTF(ClientServerProtocol.downStreamStart);
 			oos.writeInt(barrierID);
+			oos.writeInt(getRuntimeContext().getIndexOfThisSubtask());
+			oos.writeInt(stateSize);
 			oos.flush();
 			String cmd=ois.readUTF();
 			if (cmd.contains(ClientServerProtocol.downStreamMetricStart)) {
@@ -102,7 +116,6 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 					if (m.containsKey(tmp_key)) localHotKey.add(tmp_key);
 				}
 
-				oos.writeInt(getRuntimeContext().getIndexOfThisSubtask());
 				oos.writeInt(localHotKey.size());
 				for (K i : localHotKey) oos.writeObject(i);
 				oos.flush();
@@ -142,6 +155,7 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 					oos.writeInt(tar);
 					oos.writeObject(entry.getKey());
 					oos.writeObject(entry.getValue());
+					stateSize -= selectSize(entry.getKey(), entry.getValue());
 					//oos.writeObject(entry);
 					it.remove();
 				} catch (IOException e) {e.printStackTrace();}
@@ -155,7 +169,10 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 	}
 	private void downStreamMerge(HashMap<K, V> incomingMap) {
 		System.out.print("\n\n"+m+"+"+incomingMap+"=");
-		incomingMap.forEach((key, value) -> m.merge(key, value, this::addAll ));
+		incomingMap.forEach((key, value) -> {
+			stateSize+=selectSize(key, value);
+			m.merge(key, value, this::addAll);
+		});
 		System.out.println(m+"\n");
 	}
 }

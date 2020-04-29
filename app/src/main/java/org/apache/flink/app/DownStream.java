@@ -10,7 +10,8 @@ import java.io.Serializable;
 public class DownStream extends AbstractDownStream<Tuple3<Integer, Integer, String>,
 	Tuple3<Integer, Integer, String>, Integer, Tuple2<Integer, String>> {
 	DownStream() {
-		super(new DownStreamKeySelector(), new DownStreamValueSelector(), new DownStreamCombiner(), Tuple2.of(0, ""));
+		super(new DownStreamKeySelector(), new DownStreamValueSelector(), new DownStreamCombiner(),
+			new DownStreamSizeSelector(), Tuple2.of(0, ""));
 	}
 	@Override
 	public void udf(Tuple3<Integer, Integer, String> input, Collector<Tuple3<Integer, Integer, String>> out) {
@@ -41,3 +42,9 @@ class DownStreamValueSelector implements KeySelector<Tuple3<Integer, Integer, St
 	}
 }
 
+class DownStreamSizeSelector implements SizeCalculator<Integer, Tuple2<Integer, String>>, Serializable{
+	@Override
+	public int size(Integer key, Tuple2<Integer, String> value) {
+		return key*value.f0;
+	}
+}

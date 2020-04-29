@@ -174,6 +174,8 @@ class DownStreamCmd<K> implements Runnable {
 		//id in seq
 		try {
 			barrierID = ois.readInt();
+			int index=ois.readInt(), stateSize=ois.readInt();
+			System.out.println("D: "+index+" ["+stateSize+"]");
 			String cmd="";
 			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamMigrationStart;
 			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
@@ -186,7 +188,7 @@ class DownStreamCmd<K> implements Runnable {
 				for (K key: entireHotKeySet) oos.writeObject(key);
 				oos.flush();
 
-				int index=ois.readInt(), cnt=ois.readInt();
+				int cnt=ois.readInt();
 				List<K> hotKeyArray = new LinkedList<>();
 				for (int i=0; i<cnt; i++) hotKeyArray.add((K)ois.readObject());
 				System.out.println(index+" hot key "+hotKeyArray);
