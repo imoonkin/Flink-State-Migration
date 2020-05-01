@@ -16,8 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.app;
+package org.apache.flink.MigrationApp;
 
+	import org.apache.flink.MigrationApi.ClientServerProtocol;
+	import org.apache.flink.MigrationApi.SkewnessDetector;
+	import org.apache.flink.MigrationApi.UpStreamPF;
 	import org.apache.flink.api.common.functions.FlatMapFunction;
 	import org.apache.flink.api.java.functions.KeySelector;
 	import org.apache.flink.api.java.tuple.Tuple3;
@@ -41,7 +44,7 @@ package org.apache.flink.app;
  * <p>If you change the name of the main class (with the public static void main(String[] args))
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
-public class app {
+public class AppSplit {
 
 	public static void main(String[] args) throws Exception {
 		// set up the streaming execution environment
@@ -59,26 +62,6 @@ public class app {
 		env.enableCheckpointing(5000);
 		env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 		env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
-		/*
-		 * Here, you can start creating your execution plan for Flink.
-		 *
-		 * Start with getting some data from the environment, like
-		 * 	env.readTextFile(textPath);
-		 *
-		 * then, transform the resulting DataStream<String> using operations
-		 * like
-		 * 	.filter()
-		 * 	.flatMap()
-		 * 	.join()
-		 * 	.coGroup()
-		 *
-		 * and many more.
-		 * Have a look at the programming guide for the Java API:
-		 *
-		 * http://flink.apache.org/docs/latest/apis/streaming/index.html
-		 *
-		 */
-
 
 		DataStream<Tuple3<Integer, Integer, String>> dataStream = env
 			.socketTextStream("localhost", 9999).setParallelism(1)
@@ -86,36 +69,13 @@ public class app {
 			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS())).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			.flatMap(new DownStream()).setParallelism(ClientServerProtocol.downStreamParallelism)
+			.flatMap(new DownStreamSplit()).setParallelism(ClientServerProtocol.downStreamParallelism)
 			//.flatMap(new Tail<>()).setParallelism(1)
 			.keyBy(0)
 			.timeWindow(Time.seconds(5))
 			.sum(1).setParallelism(1);
 
-		//dataStream.print();
-		// execute program
 		env.execute("Flink Streaming Java API Skeleton");
 	}
 
-}
-class KeyGen implements FlatMapFunction<String, Tuple2<Integer, String>> {
-	@Override
-	public void flatMap(String s, Collector<Tuple2<Integer, String>> out) throws Exception {
-		for (String word: s.split(" ")) {
-			out.collect(new Tuple2<Integer, String>(word.length(), s));
-		}
-	}
-}
-class KS implements KeySelector<Tuple2<Integer, String>, Integer> {
-	@Override
-	public Integer getKey(Tuple2<Integer, String> value) throws Exception {
-		return value.f0;
-	}
-}
-
-class Splitter implements FlatMapFunction<Tuple2<Integer, String>, Tuple3<Integer, Integer, String>> {
-	@Override
-	public void flatMap(Tuple2<Integer, String> in, Collector<Tuple3<Integer, Integer, String>> out) throws Exception {
-		out.collect(new Tuple3<Integer, Integer, String>(in.f0, 1, in.f1.toUpperCase()));
-	}
 }

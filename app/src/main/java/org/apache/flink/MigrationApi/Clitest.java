@@ -1,10 +1,5 @@
-package org.apache.flink.app;
+package org.apache.flink.MigrationApi;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
 import java.util.*;
 
 public class Clitest {

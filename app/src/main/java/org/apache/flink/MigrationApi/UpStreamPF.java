@@ -1,4 +1,4 @@
-package org.apache.flink.app;
+package org.apache.flink.MigrationApi;
 
 import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.coordinator.MyPF;
@@ -13,7 +13,7 @@ public class UpStreamPF<K> implements Partitioner<K> {
 	private MyPF<K> pf;
 	private HashSet<K> set=new HashSet<>();
 
-	UpStreamPF() { fetchPF(0);
+	public UpStreamPF() { fetchPF(0);
 	}
 
 	private void fetchPF(int barrierID) {

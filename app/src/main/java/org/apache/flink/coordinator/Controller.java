@@ -1,6 +1,6 @@
 package org.apache.flink.coordinator;
 
-import org.apache.flink.app.ClientServerProtocol;
+import org.apache.flink.MigrationApi.ClientServerProtocol;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -14,13 +14,12 @@ import java.util.Set;
 
 public class Controller<K> implements Runnable{
 	private PFConstructor<K> pfc;
-	private Controller(PFConstructor<K> pfc) {
+	Controller(PFConstructor<K> pfc) {
 		this.pfc=pfc;
 	}
 	@Override
 	public void run() {
 		ServerSocket serverSocket;
-
 		int startID=0, endID=0;
 
 		try {
@@ -40,7 +39,7 @@ public class Controller<K> implements Runnable{
 					new Thread(new UpStreamCmd(ois, oos, socket, startID, endID, pfc)).start();
 
 				} else if (cli.contains(ClientServerProtocol.downStreamStart)) {//update PF,
-					new Thread(new DownStreamCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
+					new Thread(new DownStreamSplitCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
 				}
 			}
 		}catch (Exception e){
@@ -48,15 +47,6 @@ public class Controller<K> implements Runnable{
 		}
 	}
 
-	public static void main(String[] args) throws Exception{
-		PFConstructor<Integer> pfc= new PFConstructor<>(30, 1.3f);
-		Thread t=new Thread(new MigrationServer(pfc));
-		t.start();
-		Thread t1=new Thread(new Controller<Integer>(pfc));
-		t1.start();
-		t.join();
-		t1.join();
-	}
 }
 
 class SourceCmd<K> implements Runnable {
@@ -82,10 +72,11 @@ class SourceCmd<K> implements Runnable {
 			if (pfc.isMetric()) {
 				pfc.setMigrating();
 				System.out.println("setMigrating");
-			} else if (pfc.isMigrating()) {
+			} // set metric then start migrating
+			if (pfc.isMigrating()) {
 				if (pfc.hasNext()) {
 					pfc.updateToNext();
-					System.out.println("set updateToNext");
+					System.out.println("set updateToNext : "+ pfc.getPF().getHyperRoute());
 				}else {
 					pfc.setIdle();
 					System.out.println("set Idle");
@@ -153,15 +144,15 @@ class UpStreamCmd implements Runnable {
 	}
 }
 
-class DownStreamCmd<K> implements Runnable {
+class DownStreamSplitCmd<K> implements Runnable {
 	private ObjectInputStream ois;
 	private ObjectOutputStream oos;
 	private Socket socket;
 	private int barrierID, startID, endID;
 	private PFConstructor<K> pfc;
 
-	DownStreamCmd(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
-				  int start, int end, PFConstructor<K> pf) {
+	DownStreamSplitCmd(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
+					   int start, int end, PFConstructor<K> pf) {
 		this.oos = oos;
 		this.ois = ois;
 		socket = s;
@@ -177,7 +168,7 @@ class DownStreamCmd<K> implements Runnable {
 			int index=ois.readInt(), stateSize=ois.readInt();
 			System.out.println("D: "+index+" ["+stateSize+"]");
 			String cmd="";
-			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamMigrationStart;
+			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamSplitMigrationStart;
 			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
 			oos.writeUTF(cmd);
 			oos.flush();
@@ -195,7 +186,7 @@ class DownStreamCmd<K> implements Runnable {
 				needUpdate=pfc.addMetric(index, hotKeyArray);  // updatePF called in addMetric
 				if (needUpdate) System.out.println("all Metric sent");
 			}
-			if (cmd.contains(ClientServerProtocol.downStreamMigrationStart)) {
+			if (cmd.contains(ClientServerProtocol.downStreamSplitMigrationStart)) {
 				oos.writeObject(pfc.getPF());
 				oos.flush();
 			}
@@ -206,6 +197,7 @@ class DownStreamCmd<K> implements Runnable {
 		}
 	}
 }
+
 
 @Deprecated
 class TailCmd<K> implements Runnable {

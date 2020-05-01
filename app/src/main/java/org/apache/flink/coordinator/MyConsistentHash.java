@@ -1,21 +1,15 @@
 package org.apache.flink.coordinator;
 
+import org.apache.flink.MigrationApi.ClientServerProtocol;
+
 import java.io.Serializable;
 
 class MyConsistentHash<K> implements Serializable {
 //TODO: Consistent Hash
-	private int yu=0;
+	private int yu= ClientServerProtocol.downStreamParallelism;
 	int hash(K key) {
 		int kk=key instanceof Integer ? ((Integer) key) : 0;
-		if (kk%2==yu)
-			return 0;
-		return 1;
-	}
-	void setYu(int y) {
-		yu=y;
-	}
-	int getYu() {
-		return yu;
+		return kk%yu;
 	}
 
 }

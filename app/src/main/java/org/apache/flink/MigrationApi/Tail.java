@@ -1,7 +1,6 @@
-package org.apache.flink.app;
+package org.apache.flink.MigrationApi;
 
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
-import org.apache.flink.coordinator.MyPF;
 import org.apache.flink.util.Collector;
 
 import java.io.ObjectInputStream;

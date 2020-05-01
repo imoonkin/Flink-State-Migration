@@ -1,6 +1,6 @@
 package org.apache.flink.coordinator;
 
-import org.apache.flink.app.ClientServerProtocol;
+import org.apache.flink.MigrationApi.ClientServerProtocol;
 
 import java.util.*;
 
@@ -17,8 +17,8 @@ class PFConstructor<K> {
 	private int state=0; // 0:idle, 1:metric, 2:migrating
 
 
-	MigrationSplitter<K> migrationSplitter;
-	PFConstructor(int maxP, float alpha) {
+	private HyperRouteProvider<K> migrationSplitter;
+	PFConstructor(int maxP, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
 		pf = new MyPF<K>();
 		metric = new ArrayList<>();
 		operatorLoad = new ArrayList<>();
@@ -30,11 +30,9 @@ class PFConstructor<K> {
 		theta=(alpha*parallelism)/(alpha+parallelism-1)-1;
 		hk=new HashMap<>();
 		state=0;
-		migrationSplitter=new MigrationSplitter<>();
+		migrationSplitter=hyperRouteProvider;
 	}
-	MyPF<K> getPF() {
-		return pf;
-	}
+
 
 	void updatePFnew() {
 		//new hb
@@ -68,13 +66,14 @@ class PFConstructor<K> {
 				float a=balancePenalty(operatorLoad, key, l, hyperRouteBuffer.size()),
 					r=migrationPenalty(m, newhk.get(key), l, h, mCeil),
 					cur_u=computeUtil(a, r);
-				//System.out.println("   to "+l+" "+cur_u);
+				//System.out.println("   to "+l+" "+a+" "+r+" "+cur_u);
 				if (cur_u < u) {
 					j=l; u=cur_u;
 				}
 			}
-			System.out.println(key+"==>"+j);
+
 			if (j!=h) {
+				System.out.println(key+"=re=>"+j);
 				m+=newhk.get(key);
 				migrationSplitter.addKey(key, h, j, newhk.get(key));
 			}
@@ -84,13 +83,13 @@ class PFConstructor<K> {
 
 		//update MyPF
 		pf.setHb(newHb);
-		migrationSplitter.split(hyperRouteBuffer);
+		migrationSplitter.prepare(hyperRouteBuffer);
 		hk=newhk;
 		for (int i=0; i<maxParallelism; i++) {
 			metric.get(i).clear();
 			operatorLoad.set(i, 0f);
 		}
-		metricCnt=-1;
+		metricCnt=0;
 
 	}
 	private float balancePenalty(ArrayList<Float> operatorLoad, K d, int l, int cnt) {
@@ -113,17 +112,9 @@ class PFConstructor<K> {
 	}
 	private float computeUtil(float a, float r) {
 		return a+r;
-		//TODO: try some other functions
+		//TODO: try some other functions. migrationPenalty may be too small
 	}
 
-	void setHotKey(HashMap<K, Float> hotKey) {
-		newhk=hotKey;
-
-	}
-
-	Set<K> getNewHotKeySet() {
-		return newhk.keySet();
-	}
 
 	synchronized boolean addMetric(int index, List<K> arr) {
 		metric.get(index).addAll(arr);
@@ -131,6 +122,15 @@ class PFConstructor<K> {
 		return metricCnt == parallelism;
 	}
 
+	MyPF<K> getPF() {
+		return pf;
+	}
+	void setHotKey(HashMap<K, Float> hotKey) {
+		newhk=hotKey;
+	}
+	Set<K> getNewHotKeySet() {
+		return newhk.keySet();
+	}
 	boolean isIdle() {
 		return state == 0;
 	}

@@ -1,4 +1,4 @@
-package org.apache.flink.app;
+package org.apache.flink.MigrationApi;
 
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -8,7 +8,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -18,7 +17,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 	private List lastHK;
 	private KeySelector<T, K> keySelector;
 
-	SkewnessDetector(KeySelector<T, K> ks) {
+	public SkewnessDetector(KeySelector<T, K> ks) {
 		keySelector= ks;
 	}
 
@@ -65,7 +64,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		out.collect(value);
 	}
 	private boolean differentHK(HashMap<K, Integer> curHK, int barrierID) {
-		return barrierID > 0 && barrierID % 5 == 0;
+		return barrierID > 0 && barrierID ==4;
 	}
 }
 
@@ -80,8 +79,9 @@ class SpaceSaving<K> implements Serializable {
 	}
 	HashMap<K, Integer> getHotKey() {
 		HashMap<K, Integer> above20 = new HashMap<>();
-		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>0.25)
+		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>0.13)
 			above20.put(entry.getKey(), entry.getValue());
+		System.out.println(total +" "+hotKey);
 		return above20;
 	}
 	void addKey(K key) {

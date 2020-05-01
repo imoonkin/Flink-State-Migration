@@ -1,4 +1,4 @@
-package org.apache.flink.app;
+package org.apache.flink.MigrationApi;
 
 import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
@@ -12,7 +12,7 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
-
+@Deprecated
 public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, String>, Tuple3<Integer, Integer, String>> {
 
 	/**
@@ -53,7 +53,7 @@ public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, 
 			Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
 			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-			oos.writeUTF(ClientServerProtocol.downStreamStart);
+			oos.writeUTF(ClientServerProtocol.downStreamSplitStart);
 			oos.writeInt(barrierID);
 			oos.flush();
 			String cmd=ois.readUTF();
@@ -70,14 +70,14 @@ public class DownStreamUDF extends RichFlatMapFunction<Tuple3<Integer, Integer, 
 				for (Integer i : localHotKey) oos.writeObject(i);
 				oos.flush();
 			}
-			if (cmd.contains(ClientServerProtocol.downStreamMigrationStart)) {
+			if (cmd.contains(ClientServerProtocol.downStreamSplitMigrationStart)) {
 				Partitioner<Integer> partitionFunction = (Partitioner<Integer>) ois.readObject();
 				socket.close();
 				socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portMigration);
 				oos = new ObjectOutputStream(socket.getOutputStream());
 				ois = new ObjectInputStream(socket.getInputStream());
 				//System.out.println("down stream start migrate");
-				oos.writeUTF(ClientServerProtocol.downStreamMigrationStart);
+				oos.writeUTF(ClientServerProtocol.downStreamSplitMigrationStart);
 				oos.writeInt(getRuntimeContext().getIndexOfThisSubtask());
 				oos.writeUTF(ClientServerProtocol.downStreamPull);
 				oos.flush();

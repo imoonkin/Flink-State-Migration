@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class ServerTest {
 	public static void main(String[] args) {
-		MigrationSplitter<Integer> ms=new MigrationSplitter<>();
+		HyperRouteProviderSplit<Integer> ms=new HyperRouteProviderSplit<>();
 		ms.addKey(0, 8,0, 0.3f);
 		ms.addKey(1, 8,0, 0.25f);
 		ms.addKey(2, 8,1, 0.4f);
@@ -17,7 +17,7 @@ public class ServerTest {
 
 		tar.put(2, 1);
 		tar.put(0, 0);
-		ms.split(tar);
+		ms.prepare(tar);
 		while (ms.hasNextHyperRoute()) {
 			System.out.println(ms.nextHyperRoute());
 		}
@@ -34,7 +34,7 @@ public class ServerTest {
 		ori.put(2, 1);
 		ori.put(1, 0);
 		ori.put(0, 1);
-		ms.split(tar);
+		ms.prepare(tar);
 		while (ms.hasNextHyperRoute()) {
 			System.out.println(" "+ms.nextHyperRoute());
 		}

@@ -1,12 +1,12 @@
 package org.apache.flink.coordinator;
 
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.app.ClientServerProtocol;
+import org.apache.flink.MigrationApi.ClientServerProtocol;
 
 import java.util.HashMap;
 import java.util.PriorityQueue;
 
-class MigrationSplitter<K> {
+class HyperRouteProviderSplit<K> implements HyperRouteProvider<K>{
 	private PriorityQueue<Tuple3<K, Integer, Float>> queue;
 	private int totalChunkNum, curChunkNum; //TODO: not accurate;
 	private HashMap<K, Integer> curRoute, finalHyperRoute;
@@ -14,7 +14,7 @@ class MigrationSplitter<K> {
 	private int delay;
 	private boolean inProgress;
 
-	MigrationSplitter() {
+	HyperRouteProviderSplit() {
 		queue=new PriorityQueue<>((x, y) -> Float.compare(y.f2, x.f2));
 		totalChunkNum =ClientServerProtocol.chunkNum;
 		curChunkNum=0;
@@ -24,14 +24,16 @@ class MigrationSplitter<K> {
 		curRoute = new HashMap<>();
 	}
 
-	void addKey(K key, int oriPos, int newPos, float frequency) { // new key, old pos, new pos
+	@Override
+	public void addKey(K key, int oriPos, int newPos, float frequency) { // new key, old pos, new pos
 		if (oriPos==newPos) System.out.println("WARNING: same pos key added!!!");
 		curRoute.put(key, oriPos);
 		queue.offer(Tuple3.of(key, newPos, frequency));
 		totalFrequency+=frequency;
 	}
 
-	void split(HashMap<K, Integer> finalHyperRoute) { // original pos
+	@Override
+	public void prepare(HashMap<K, Integer> finalHyperRoute) { // original pos
 		this.finalHyperRoute=finalHyperRoute;
 		totalChunkNum =ClientServerProtocol.chunkNum;
 		curChunkNum=0;
@@ -40,7 +42,8 @@ class MigrationSplitter<K> {
 		//System.out.println("init "+perChunkFrequency+" "+totalFrequency+" "+totalChunkNum);
 	}
 
-	boolean hasNextHyperRoute() {
+	@Override
+	public boolean hasNextHyperRoute() {
 		if (!inProgress) return false;
 		if (queue.size() > 0 || delay > 0) {
 			return true;
@@ -53,7 +56,8 @@ class MigrationSplitter<K> {
 			return false;
 		}
 	}
-	HashMap<K, Integer> nextHyperRoute(){
+	@Override
+	public HashMap<K, Integer> nextHyperRoute(){
 		float curFrequency=0f;
 		Tuple3<K, Integer, Float> head;
 		if (!queue.isEmpty()) {
