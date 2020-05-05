@@ -13,12 +13,13 @@ import java.util.List;
 
 public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 
-	private SpaceSaving<K> spaceSaving=new SpaceSaving<>();
+	private SpaceSaving<K> spaceSaving;
 	private List lastHK;
 	private KeySelector<T, K> keySelector;
 
-	public SkewnessDetector(KeySelector<T, K> ks) {
+	public SkewnessDetector(KeySelector<T, K> ks, float para) {
 		keySelector= ks;
+		spaceSaving=new SpaceSaving<>(para);
 	}
 
 	@Override
@@ -64,7 +65,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		out.collect(value);
 	}
 	private boolean differentHK(HashMap<K, Integer> curHK, int barrierID) {
-		return barrierID > 0 && barrierID ==4;
+		return barrierID > 0 && barrierID ==3;
 	}
 }
 
@@ -73,15 +74,18 @@ class SpaceSaving<K> implements Serializable {
 	//TODO: space saving
 	private HashMap<K, Integer> hotKey;
 	private int total;
-	SpaceSaving() {
+	private float threshold;
+	SpaceSaving(float threshold) {
 		hotKey=new HashMap<>();
 		total=0;
+		this.threshold=threshold;
+		System.out.println("threshold "+threshold);
 	}
 	HashMap<K, Integer> getHotKey() {
 		HashMap<K, Integer> above20 = new HashMap<>();
-		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>0.13)
+		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>threshold)
 			above20.put(entry.getKey(), entry.getValue());
-		System.out.println(total +" "+hotKey);
+		System.out.println("Detector: "+total +" "+hotKey);
 		return above20;
 	}
 	void addKey(K key) {

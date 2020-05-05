@@ -7,6 +7,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -14,17 +15,27 @@ import java.util.Set;
 
 public class Controller<K> implements Runnable{
 	private PFConstructor<K> pfc;
+	private boolean isRunning;
+	private ServerSocket serverSocket;
 	Controller(PFConstructor<K> pfc) {
 		this.pfc=pfc;
+		this.isRunning=true;
+		serverSocket=null;
 	}
+
+	void setStop() throws IOException {
+		isRunning = false;
+		serverSocket.close();
+	}
+
 	@Override
 	public void run() {
-		ServerSocket serverSocket;
+
 		int startID=0, endID=0;
 
 		try {
 			serverSocket = new ServerSocket(ClientServerProtocol.portController);
-			while (true) {
+			while (isRunning) {
 				Socket socket = serverSocket.accept();
 				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -32,8 +43,8 @@ public class Controller<K> implements Runnable{
 				if (cli.contains(ClientServerProtocol.sourceStart)) {
 					// receive hot key, send to PF constructor,  set barrier seq(startID, endID=startID+3),
 					startID = ois.readInt();
-					System.out.println("# "+startID);
-					endID=startID+3;
+					System.out.println("# " + startID);
+					endID = startID + 3;
 					new Thread(new SourceCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
 				} else if (cli.contains(ClientServerProtocol.upStreamStart)) {
 					new Thread(new UpStreamCmd(ois, oos, socket, startID, endID, pfc)).start();
@@ -42,8 +53,19 @@ public class Controller<K> implements Runnable{
 					new Thread(new DownStreamSplitCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
 				}
 			}
-		}catch (Exception e){
-			System.out.println("controller error"); e.printStackTrace();
+		} catch (SocketException e) {
+			System.out.println("last controller closed");
+		} catch (Exception e) {
+			System.out.println("controller error");
+			e.printStackTrace();
+		} finally {
+			if (serverSocket != null) {
+				try {
+					serverSocket.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 

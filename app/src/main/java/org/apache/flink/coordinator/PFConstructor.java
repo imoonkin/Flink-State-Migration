@@ -1,7 +1,5 @@
 package org.apache.flink.coordinator;
 
-import org.apache.flink.MigrationApi.ClientServerProtocol;
-
 import java.util.*;
 
 class PFConstructor<K> {
@@ -9,7 +7,7 @@ class PFConstructor<K> {
 	private HashMap<K, Float> hk, newhk;
 	private ArrayList<HashSet<K>> metric;
 	private ArrayList<Float> operatorLoad;
-	private final int parallelism= ClientServerProtocol.downStreamParallelism;
+	private final int parallelism;
 	private final int maxParallelism;
 	private final float theta;
 	private int metricCnt=0;
@@ -18,8 +16,8 @@ class PFConstructor<K> {
 
 
 	private HyperRouteProvider<K> migrationSplitter;
-	PFConstructor(int maxP, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
-		pf = new MyPF<K>();
+	PFConstructor(int maxP, int parallelism, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
+		pf = new MyPF<K>(parallelism);
 		metric = new ArrayList<>();
 		operatorLoad = new ArrayList<>();
 		for (int i=0; i<maxP; i++) {
@@ -27,6 +25,7 @@ class PFConstructor<K> {
 			operatorLoad.add(0f);
 		}
 		maxParallelism=maxP;
+		this.parallelism=parallelism;
 		theta=(alpha*parallelism)/(alpha+parallelism-1)-1;
 		hk=new HashMap<>();
 		state=0;
@@ -36,7 +35,7 @@ class PFConstructor<K> {
 
 	void updatePFnew() {
 		//new hb
-		MyConsistentHash<K> newHb=new MyConsistentHash<>();
+		MyConsistentHash<K> newHb=new MyConsistentHash<>(parallelism);
 
 		//Algorithm 1 => new hyper route
 		Set<K> D_o = new HashSet<>(), D_a=new HashSet<>();

@@ -8,9 +8,11 @@ import java.util.HashMap;
 public class MyPF<K> implements Serializable, Partitioner<K> {
 	private MyConsistentHash<K> hb;
 	private HashMap<K, Integer> hyperRoute;
-	MyPF() {
+	private int parallelism;
+	MyPF(int parallelism) {
+		this.parallelism=parallelism;
 		hyperRoute=new HashMap<>();
-		hb=new MyConsistentHash<>();
+		hb=new MyConsistentHash<>(parallelism);
 	}
 	public int partition(K key, int n) {
 		int tmp=ha(key);
@@ -18,7 +20,7 @@ public class MyPF<K> implements Serializable, Partitioner<K> {
 		return hb.hash(key);
 	}
 
-	int ha(K key) {
+	private int ha(K key) {
 		return hyperRoute.getOrDefault(key, -1);
 	}
 

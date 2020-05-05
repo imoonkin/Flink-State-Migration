@@ -32,10 +32,10 @@ public class AppOnce {
 		DataStream<Tuple3<Integer, Integer, String>> dataStream = env
 			.socketTextStream("localhost", 9999).setParallelism(1)
 			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
-			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS())).setParallelism(1)
+			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS(), Float.parseFloat(args[1]))).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			.flatMap(new DownStreamOnce()).setParallelism(ClientServerProtocol.downStreamParallelism)
+			.flatMap(new DownStreamOnce()).setParallelism(Integer.parseInt(args[0]))
 			//.flatMap(new Tail<>()).setParallelism(1)
 			.keyBy(0)
 			.timeWindow(Time.seconds(5))

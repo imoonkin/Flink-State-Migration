@@ -6,41 +6,68 @@ import org.apache.flink.MigrationApi.ClientServerProtocol;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MigrationServer implements Runnable{
+public class MigrationServer implements Runnable {
 	static ArrayList<ConcurrentHashMap<Integer, Tuple2<Integer, String>>> mapList;
+	private boolean isRunning;
+	static int parallelism;
+	private ServerSocket serverSocket;
+
+	MigrationServer(int parallelism) {
+		this.isRunning=true;
+		this.parallelism=parallelism;
+		serverSocket=null;
+	}
+
+	void setStop() throws IOException {
+		isRunning = false;
+		serverSocket.close();
+	}
 
 	@Override
-	public void run() {
-		int downStreamParallelism=23;
-		mapList=new ArrayList<>();
-		for (int i=0; i<downStreamParallelism; i++) mapList.add(new ConcurrentHashMap<>());
 
-		AtomicInteger pushed=new AtomicInteger(0);
-		AtomicBoolean pullable=new AtomicBoolean(false);
-		ServerSocket serverSocket;
+	public void run() {
+		int downStreamParallelism = 23;
+		mapList = new ArrayList<>();
+		for (int i = 0; i < downStreamParallelism; i++) mapList.add(new ConcurrentHashMap<>());
+
+		AtomicInteger pushed = new AtomicInteger(0);
+		AtomicBoolean pullable = new AtomicBoolean(false);
+
 		try {
 			serverSocket = new ServerSocket(ClientServerProtocol.portMigration);
-			while(true) {
+			//System.out.println("migration server opened " + serverSocket.isClosed());
+			while (isRunning) {
 				Socket socket = serverSocket.accept();
 				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 				String cli = ois.readUTF();
 				if (cli.contains(ClientServerProtocol.downStreamSplitMigrationStart)) {
 					new Thread(new DownStreamSplitHandler(ois, oos, socket))
-					.start();
+						.start();
 				} else if (cli.contains(ClientServerProtocol.downStreamOnceMigrationStart)) {
 					new Thread(new DownStreamOnceHandler(ois, oos, socket, pushed, pullable))
 						.start();
 				}
 			}
+		} catch (SocketException e1) {
+			System.out.println("last migration server closed");
 		} catch (IOException e) {
 			e.printStackTrace();
+		} finally {
+			if (serverSocket != null) {
+				try {
+					serverSocket.close();
+					System.out.println("finally migration server closed");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 	/*public static void main(String[] args) throws Exception{
@@ -62,6 +89,7 @@ class DownStreamSplitHandler implements Runnable{
 	}
 	@Override
 	public void run() {
+		long startTime=System.currentTimeMillis();
 		try {
 			cliIndex=ois.readInt();
 		} catch (IOException e) {
@@ -97,6 +125,8 @@ class DownStreamSplitHandler implements Runnable{
 				break;
 			}
 		}
+		System.out.println("Migration Time: "+cliIndex+" "+(System.currentTimeMillis()-startTime));
+
 	}
 
 }
@@ -120,6 +150,7 @@ class DownStreamOnceHandler implements Runnable {
 
 	@Override
 	public void run() {
+		long startTime=System.currentTimeMillis();
 		try {
 			cliIndex = ois.readInt();
 			//System.out.println("migration thread");
@@ -127,7 +158,7 @@ class DownStreamOnceHandler implements Runnable {
 				String cmd = ois.readUTF();
 				if (cmd.contains(ClientServerProtocol.downStreamPull)) { //
 					//System.out.println("downStream: "+cliIndex+" pulling");
-					if (pushed.incrementAndGet() == ClientServerProtocol.downStreamParallelism) { // pull means push end
+					if (pushed.incrementAndGet() == MigrationServer.parallelism) { // pull means push end
 						pullable.set(true);
 					}
 					while (true) {
@@ -150,7 +181,7 @@ class DownStreamOnceHandler implements Runnable {
 					System.out.println("OnceServer get " + key + " " + value + " from " + cliIndex);
 				} else if (cmd.contains(ClientServerProtocol.downStreamClose)) {
 					socket.close();
-					if (pushed.decrementAndGet() == ClientServerProtocol.downStreamParallelism) {
+					if (pushed.decrementAndGet() == MigrationServer.parallelism) {
 						pullable.set(false);
 					}
 					//System.out.println("downStream: "+cliIndex+" closed");
@@ -160,6 +191,7 @@ class DownStreamOnceHandler implements Runnable {
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
+		System.out.println("Migration Time: "+cliIndex+" "+(System.currentTimeMillis()-startTime));
 	}
 }
 

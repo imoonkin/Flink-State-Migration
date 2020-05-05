@@ -53,7 +53,7 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 		m.put(selectKey(input),
 			addOne(m.getOrDefault(selectKey(input), defaultV),selectValue(input)));
 		stateSize+=selectSize(selectKey(input), selectValue(input));
-		System.out.println("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" ["+stateSize+"] "+m);
+		//System.out.println("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" ["+stateSize+"] "+m);
 
 		udf(input, out);
 	}

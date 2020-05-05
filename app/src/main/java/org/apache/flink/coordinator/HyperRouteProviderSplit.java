@@ -14,9 +14,9 @@ class HyperRouteProviderSplit<K> implements HyperRouteProvider<K>{
 	private int delay;
 	private boolean inProgress;
 
-	HyperRouteProviderSplit() {
+	HyperRouteProviderSplit(int chunkNum) {
 		queue=new PriorityQueue<>((x, y) -> Float.compare(y.f2, x.f2));
-		totalChunkNum =ClientServerProtocol.chunkNum;
+		totalChunkNum =chunkNum;
 		curChunkNum=0;
 		totalFrequency=0;
 		delay=1;
@@ -35,7 +35,6 @@ class HyperRouteProviderSplit<K> implements HyperRouteProvider<K>{
 	@Override
 	public void prepare(HashMap<K, Integer> finalHyperRoute) { // original pos
 		this.finalHyperRoute=finalHyperRoute;
-		totalChunkNum =ClientServerProtocol.chunkNum;
 		curChunkNum=0;
 		inProgress=true;
 		perChunkFrequency=totalFrequency/totalChunkNum;

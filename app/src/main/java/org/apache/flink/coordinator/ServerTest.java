@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class ServerTest {
 	public static void main(String[] args) {
-		HyperRouteProviderSplit<Integer> ms=new HyperRouteProviderSplit<>();
+		HyperRouteProviderSplit<Integer> ms=new HyperRouteProviderSplit<>(2);
 		ms.addKey(0, 8,0, 0.3f);
 		ms.addKey(1, 8,0, 0.25f);
 		ms.addKey(2, 8,1, 0.4f);
