@@ -12,7 +12,6 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.LinkedList;
 
-
 public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunction<IN, OUT> {
 
 	/**
@@ -26,6 +25,7 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 	private SizeCalculator<K, V> sizeCalculator;
 	private V defaultV;
 	int stateSize;
+	private boolean process;
 
 	AbstractDownStream(KeySelector<IN, K> keySelector, KeySelector<IN, V> valueSelector,
 					   Combiner<V> combiner, SizeCalculator<K, V> sizeCalculator, V defaultV) {
@@ -36,6 +36,7 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 		this.sizeCalculator=sizeCalculator;
 		this.defaultV = defaultV;
 		this.stateSize = 0;
+		process=true;
 	}
 
 	@Override
@@ -50,9 +51,10 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 			Thread.currentThread().setName(Thread.currentThread().getName().substring(0, index));
 		}
 
-		m.put(selectKey(input),
-			addOne(m.getOrDefault(selectKey(input), defaultV),selectValue(input)));
-		stateSize+=selectSize(selectKey(input), selectValue(input));
+			m.put(selectKey(input),//TODO: silent after migration
+				addOne(m.getOrDefault(selectKey(input), defaultV),selectValue(input)));
+			stateSize+=selectSize(selectKey(input), selectValue(input));
+
 		//System.out.println("Down:"+getRuntimeContext().getIndexOfThisSubtask()+" ["+stateSize+"] "+m);
 
 		udf(input, out);
@@ -72,6 +74,9 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 			oos.writeInt(stateSize);
 			oos.flush();
 			String cmd=ois.readUTF();
+			if (cmd.contains("Silence")) {//TODO: silent after migration
+				process=false;
+			}
 			if (cmd.contains(ClientServerProtocol.downStreamMetricStart)) {
 				int entireHotKeyNum=ois.readInt();
 				LinkedList<K> localHotKey=new LinkedList<>();
@@ -100,12 +105,12 @@ public abstract class AbstractDownStream<IN, OUT, K, V> extends RichFlatMapFunct
 		return null;
 	}
 	private void downStreamMerge(HashMap<K, V> incomingMap) {
-		System.out.print("\n\n"+m+"+"+incomingMap+"=");
+		//System.out.print("\n\n"+m+"+"+incomingMap+"=");
 		incomingMap.forEach((key, value) -> {
 			stateSize+=selectSize(key, value);
 			m.merge(key, value, this::addAll);
 		});
-		System.out.println(m+"\n");
+		//System.out.println(m+"\n");
 	}
 	@Override
 	public void open(Configuration config) {

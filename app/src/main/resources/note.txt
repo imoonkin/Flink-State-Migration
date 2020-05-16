@@ -1,0 +1,7 @@
+AppSplit / Once     toggle env
+local		        final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+local & remote		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+
+
+4 8 typeOnce 100 8 273000 /home/mike/Documents/

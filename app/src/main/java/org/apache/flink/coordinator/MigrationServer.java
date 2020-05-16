@@ -1,5 +1,6 @@
 package org.apache.flink.coordinator;
 
+import org.apache.flink.MigrationApi.Combiner;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.MigrationApi.ClientServerProtocol;
 
@@ -12,16 +13,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class MigrationServer implements Runnable {
-	static ArrayList<ConcurrentHashMap<Integer, Tuple2<Integer, String>>> mapList;
+public class MigrationServer<K, V> implements Runnable {
+	private ArrayList<ConcurrentHashMap<K, V>> mapList;
+	private Combiner<V> combiner;
 	private boolean isRunning;
 	static int parallelism;
 	private ServerSocket serverSocket;
 
-	MigrationServer(int parallelism) {
+	MigrationServer(int parallelism, Combiner<V> combiner) {
 		this.isRunning=true;
-		this.parallelism=parallelism;
+		MigrationServer.parallelism =parallelism;
 		serverSocket=null;
+		this.combiner=combiner;
 	}
 
 	void setStop() throws IOException {
@@ -48,10 +51,10 @@ public class MigrationServer implements Runnable {
 				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 				String cli = ois.readUTF();
 				if (cli.contains(ClientServerProtocol.downStreamSplitMigrationStart)) {
-					new Thread(new DownStreamSplitHandler(ois, oos, socket))
+					new Thread(new DownStreamSplitHandler<K, V>(ois, oos, socket, mapList, combiner))
 						.start();
 				} else if (cli.contains(ClientServerProtocol.downStreamOnceMigrationStart)) {
-					new Thread(new DownStreamOnceHandler(ois, oos, socket, pushed, pullable))
+					new Thread(new DownStreamOnceHandler<K, V>(ois, oos, socket,  mapList, combiner, pushed, pullable))
 						.start();
 				}
 			}
@@ -77,15 +80,20 @@ public class MigrationServer implements Runnable {
 	}*/
 }
 
-class DownStreamSplitHandler implements Runnable{
-	private int cliIndex;
-	private Socket socket;
-	private ObjectInputStream ois;
-	private ObjectOutputStream oos;
-	DownStreamSplitHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s){
+class DownStreamSplitHandler<K, V> implements Runnable{
+	int cliIndex;
+	Socket socket;
+	ObjectInputStream ois;
+	ObjectOutputStream oos;
+	ArrayList<ConcurrentHashMap<K, V>> mapList;
+	Combiner<V> combiner;
+	DownStreamSplitHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
+						   ArrayList<ConcurrentHashMap<K, V>> mapList, Combiner<V> combiner){
 		this.oos=oos;
 		this.ois=ois;
 		socket=s;
+		this.mapList=mapList;
+		this.combiner=combiner;
 	}
 	@Override
 	public void run() {
@@ -102,19 +110,19 @@ class DownStreamSplitHandler implements Runnable{
 				if (cmd.contains(ClientServerProtocol.downStreamPull)) { //partition function & hash map
 					//System.out.println("downStream: "+cliIndex+" pulling");
 
-					oos.writeObject(MigrationServer.mapList.get(cliIndex));
+					oos.writeObject(mapList.get(cliIndex));
 					oos.flush();
-					MigrationServer.mapList.get(cliIndex).clear();
+					mapList.get(cliIndex).clear();
 				} else if (cmd.contains(ClientServerProtocol.downStreamPush)) {
 					//System.out.println("downStream: "+cliIndex+" pushing");
 
 					int ind=ois.readInt();
-					Integer key=(Integer)ois.readObject();
-					Tuple2<Integer, String> value=(Tuple2<Integer, String>)ois.readObject();
+					K key=(K)ois.readObject();
+					V value=(V)ois.readObject();
 
-					MigrationServer.mapList.get(ind).merge(key, value,
-						(v1, v2) -> Tuple2.of(v1.f0+v2.f0, v1.f1 + v2.f1));
-					System.out.println("Server get "+key+" "+value+" from "+cliIndex);
+					mapList.get(ind).merge(key, value,
+						(v1, v2) -> combiner.addAll(v1, v2));
+					//System.out.println("Server get "+key+" "+value+" from "+cliIndex);
 				} else if (cmd.contains(ClientServerProtocol.downStreamClose)) {
 					socket.close();
 					//System.out.println("downStream: "+cliIndex+" closed");
@@ -131,26 +139,22 @@ class DownStreamSplitHandler implements Runnable{
 
 }
 
-class DownStreamOnceHandler implements Runnable {
-	private int cliIndex;
-	private Socket socket;
-	private ObjectInputStream ois;
-	private ObjectOutputStream oos;
+class DownStreamOnceHandler<K,V> extends DownStreamSplitHandler<K, V> implements Runnable {
+
 	private AtomicInteger pushed;
 	private AtomicBoolean pullable;
 
 	DownStreamOnceHandler(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
+						  ArrayList<ConcurrentHashMap<K, V>> mapList, Combiner<V> combiner,
 						  AtomicInteger pushed, AtomicBoolean pullable) {
-		this.oos = oos;
-		this.ois = ois;
-		socket = s;
+		super(ois, oos, s, mapList, combiner);
 		this.pushed=pushed;
 		this.pullable=pullable;
 	}
 
 	@Override
 	public void run() {
-		long startTime=System.currentTimeMillis();
+		long startTime=System.nanoTime();
 		try {
 			cliIndex = ois.readInt();
 			//System.out.println("migration thread");
@@ -163,9 +167,9 @@ class DownStreamOnceHandler implements Runnable {
 					}
 					while (true) {
 						if (pullable.get()) {
-							oos.writeObject(MigrationServer.mapList.get(cliIndex));
+							oos.writeObject(mapList.get(cliIndex));
 							oos.flush();
-							MigrationServer.mapList.get(cliIndex).clear();
+							mapList.get(cliIndex).clear();
 							break;
 						}
 					}
@@ -173,15 +177,16 @@ class DownStreamOnceHandler implements Runnable {
 				} else if (cmd.contains(ClientServerProtocol.downStreamPush)) {
 					//System.out.println("downStream: "+cliIndex+" pushing");
 					int ind = ois.readInt();
-					Integer key = (Integer) ois.readObject();
-					Tuple2<Integer, String> value = (Tuple2<Integer, String>) ois.readObject();
+					K key = (K) ois.readObject();
+					V value = (V) ois.readObject();
 
-					MigrationServer.mapList.get(ind).merge(key, value,
-						(v1, v2) -> Tuple2.of(v1.f0 + v2.f0, v1.f1 + v2.f1));
-					System.out.println("OnceServer get " + key + " " + value + " from " + cliIndex);
+					mapList.get(ind).merge(key, value,
+						(v1, v2) -> combiner.addAll(v1, v2));
+					//System.out.println("OnceServer get " + key + " " + value + " from " + cliIndex);
 				} else if (cmd.contains(ClientServerProtocol.downStreamClose)) {
+					System.out.println("Migration Time: "+cliIndex+" "+((System.nanoTime()-startTime)/1000000));
 					socket.close();
-					if (pushed.decrementAndGet() == MigrationServer.parallelism) {
+					if (pushed.decrementAndGet() ==0) {
 						pullable.set(false);
 					}
 					//System.out.println("downStream: "+cliIndex+" closed");
@@ -191,7 +196,6 @@ class DownStreamOnceHandler implements Runnable {
 		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Migration Time: "+cliIndex+" "+(System.currentTimeMillis()-startTime));
 	}
 }
 

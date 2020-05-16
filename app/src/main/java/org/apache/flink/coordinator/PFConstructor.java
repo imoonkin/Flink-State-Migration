@@ -13,7 +13,7 @@ class PFConstructor<K> {
 	private int metricCnt=0;
 
 	private int state=0; // 0:idle, 1:metric, 2:migrating
-
+	int migrationOccurCount; //TODO: silent after migration
 
 	private HyperRouteProvider<K> migrationSplitter;
 	PFConstructor(int maxP, int parallelism, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
@@ -30,6 +30,7 @@ class PFConstructor<K> {
 		hk=new HashMap<>();
 		state=0;
 		migrationSplitter=hyperRouteProvider;
+		migrationOccurCount=0;
 	}
 
 
@@ -59,7 +60,7 @@ class PFConstructor<K> {
 		D_c.sort((x, y)-> { return Float.compare(newhk.get(y), newhk.get(x)); });
 
 		for (K key : D_c) {
-			System.out.println("setting key : "+key+" "+operatorLoad);
+			System.out.println("setting key : "+key);//+" "+operatorLoad);
 			int j=-1, h=pf.partition(key, parallelism); float u=Float.MAX_VALUE;
 			for (int l = 0; l < parallelism; l++) {
 				float a=balancePenalty(operatorLoad, key, l, hyperRouteBuffer.size()),
@@ -141,6 +142,7 @@ class PFConstructor<K> {
 	}
 	void setIdle() {
 		state = 0;
+		migrationOccurCount+=1;
 	}
 	void setMetric() {
 		state = 1;

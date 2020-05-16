@@ -24,6 +24,7 @@ package org.apache.flink.MigrationApp;
 	import org.apache.flink.api.common.functions.FlatMapFunction;
 	import org.apache.flink.api.java.functions.KeySelector;
 	import org.apache.flink.api.java.tuple.Tuple3;
+	import org.apache.flink.api.java.tuple.Tuple4;
 	import org.apache.flink.configuration.Configuration;
 	import org.apache.flink.streaming.api.CheckpointingMode;
 	import org.apache.flink.streaming.api.windowing.time.Time;
@@ -31,6 +32,8 @@ package org.apache.flink.MigrationApp;
 	import org.apache.flink.streaming.api.datastream.DataStream;
 	import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 	import org.apache.flink.util.Collector;
+
+	import java.nio.charset.StandardCharsets;
 
 /**
  * Skeleton for a Flink Streaming Job.
@@ -55,25 +58,34 @@ public class AppSplit {
 		first one for local test;
 		second one for cluster;
 		 */
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		//env.getConfig().setLatencyTrackingInterval(100);
 
 		env.enableCheckpointing(5000);
 		env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 		env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+		env.setBufferTimeout(1);
 
-		DataStream<Tuple3<Integer, Integer, String>> dataStream = env
-			.socketTextStream("localhost", 9999).setParallelism(1)
-			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
-			.flatMap(new SkewnessDetector<Tuple2<Integer, String>, Integer>(new KS(), Float.parseFloat(args[1]))).setParallelism(1)
-			.flatMap(new Splitter()).setParallelism(3)
-			.partitionCustom(new UpStreamPF<Integer>(), 0)
-			.flatMap(new DownStreamSplit()).setParallelism(Integer.parseInt(args[0]))
-			//.flatMap(new Tail<>()).setParallelism(1)
-			.keyBy(0)
-			.timeWindow(Time.seconds(5))
-			.sum(1).setParallelism(1);
+
+		DataStream<Long> dataStream = env
+			.readTextFile(args[5]).setParallelism(1).slotSharingGroup("0")
+			.flatMap(new KeyGen()).setParallelism(1).startNewChain().slotSharingGroup("0")
+			.flatMap(new SkewnessDetector<>(
+				new KS(), Float.parseFloat(args[1]), Integer.parseInt(args[2]))).setParallelism(1).slotSharingGroup("0")
+			.flatMap(new Splitter()).setParallelism(3).slotSharingGroup("0")
+			.partitionCustom(new UpStreamPF<Integer>(), 1)
+			.flatMap(new DownStreamSplit()).setParallelism(Integer.parseInt(args[0])).slotSharingGroup("0")
+			.flatMap(new Tail(Integer.parseInt(args[0]), Integer.parseInt(args[2]))).setParallelism(1).slotSharingGroup("0");
+		//dataStream.writeAsText("/home/mike/Documents/o "+ String.join("-",args)+".txt").setParallelism(1);
+
+		StringBuilder s= new StringBuilder(args[6]);
+		for (int i=0; i<args.length-2; i++) s.append(args[i]).append("-");
+		s.append("bid.txt");
+		System.out.println("output file: "+s);
+		dataStream.writeAsText(s.toString()).setParallelism(1);
+
 
 		env.execute("Flink Streaming Java API Skeleton");
 	}

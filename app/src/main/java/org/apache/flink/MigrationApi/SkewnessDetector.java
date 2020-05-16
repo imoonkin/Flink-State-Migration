@@ -16,10 +16,13 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 	private SpaceSaving<K> spaceSaving;
 	private List lastHK;
 	private KeySelector<T, K> keySelector;
-
-	public SkewnessDetector(KeySelector<T, K> ks, float para) {
+	private boolean migrated;
+	private int totalThreshold;
+	public SkewnessDetector(KeySelector<T, K> ks, float para, int totalThreshold) {
 		keySelector= ks;
 		spaceSaving=new SpaceSaving<>(para);
+		migrated=false;
+		this.totalThreshold=totalThreshold;
 	}
 
 	@Override
@@ -30,6 +33,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		int barrierID;
 		//System.out.println("Detectorname: "+Thread.currentThread().getName());
 		//System.out.println(keySelector.getKey(value));
+		//Thread.sleep(100);
 		if ( index >= 0) {
 			HashMap<K, Integer> curHK=spaceSaving.getHotKey();
 			barrierID = Integer.parseInt(Thread.currentThread().getName().substring(index + 1));
@@ -39,7 +43,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 			oos.writeUTF(ClientServerProtocol.sourceStart);
 			oos.writeInt(barrierID);
-			if (differentHK(curHK, barrierID)) { //in differentHK, barrierID>0 && barrierID%5==0 not needed
+			if (differentHK(curHK, barrierID, spaceSaving.getTotal())) { //in differentHK, barrierID>0 && barrierID%5==0 not needed
 				oos.writeUTF(ClientServerProtocol.sourceHotKey);
 				oos.flush();
 				if (ois.readUTF().contains(ClientServerProtocol.sourceAcceptHotKey)) {
@@ -64,8 +68,12 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 
 		out.collect(value);
 	}
-	private boolean differentHK(HashMap<K, Integer> curHK, int barrierID) {
-		return barrierID > 0 && barrierID ==3;
+	private boolean differentHK(HashMap<K, Integer> curHK, int barrierID, int total) {
+		if (!migrated && barrierID > 0 && total>totalThreshold) {
+			migrated=true;
+			return true;
+		}
+		return false;
 	}
 }
 
@@ -75,6 +83,7 @@ class SpaceSaving<K> implements Serializable {
 	private HashMap<K, Integer> hotKey;
 	private int total;
 	private float threshold;
+
 	SpaceSaving(float threshold) {
 		hotKey=new HashMap<>();
 		total=0;
@@ -83,9 +92,12 @@ class SpaceSaving<K> implements Serializable {
 	}
 	HashMap<K, Integer> getHotKey() {
 		HashMap<K, Integer> above20 = new HashMap<>();
-		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) if (((float)entry.getValue())/total>threshold)
-			above20.put(entry.getKey(), entry.getValue());
-		System.out.println("Detector: "+total +" "+hotKey);
+		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) {
+			if (((float)entry.getValue())/total>threshold)
+				above20.put(entry.getKey(), entry.getValue());
+			if (entry.getValue()>10) System.out.print(((float)entry.getValue())/total + " ");
+		}
+		System.out.println("Detector: "+total +" "+above20);
 		return above20;
 	}
 	void addKey(K key) {

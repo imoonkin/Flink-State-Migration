@@ -192,6 +192,7 @@ class DownStreamSplitCmd<K> implements Runnable {
 			String cmd="";
 			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamSplitMigrationStart;
 			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
+			if (pfc.migrationOccurCount>0) cmd = cmd + "Silence";//TODO: silent after migration
 			oos.writeUTF(cmd);
 			oos.flush();
 			boolean needUpdate=false;
