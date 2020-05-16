@@ -18,6 +18,7 @@
 
 package org.apache.flink.MigrationApp;
 
+	import org.apache.flink.MigrationApi.AbstractDownStream;
 	import org.apache.flink.MigrationApi.ClientServerProtocol;
 	import org.apache.flink.MigrationApi.SkewnessDetector;
 	import org.apache.flink.MigrationApi.UpStreamPF;
@@ -33,7 +34,9 @@ package org.apache.flink.MigrationApp;
 	import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 	import org.apache.flink.util.Collector;
 
+	import java.io.File;
 	import java.nio.charset.StandardCharsets;
+	import java.nio.file.Files;
 
 /**
  * Skeleton for a Flink Streaming Job.
@@ -47,45 +50,45 @@ package org.apache.flink.MigrationApp;
  * <p>If you change the name of the main class (with the public static void main(String[] args))
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
-public class AppSplit {
-
+public class FlinkTop {
+	/**
+	 @param args 0: input dir, 1: output dir, 2: type, 3: parallelism, 4: chunkNum, 5: skewTriggerLength,
+	 6: rangePerNode, 7: hotKeyTimes, 8: cycle
+	 */
 	public static void main(String[] args) throws Exception {
-		// set up the streaming execution environment
 		Configuration conf=new Configuration();
-		//conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
 
-		/*
-		first one for local test;
-		second one for cluster;
-		 */
-
-		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		//env.getConfig().setLatencyTrackingInterval(100);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		env.enableCheckpointing(5000);
 		env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 		env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 		env.setBufferTimeout(1);
 
+		AbstractDownStream<Tuple4<Long, Integer, Integer, String>,
+			Tuple4<Long, Integer, Integer, String>, Integer, Tuple2<Integer, String>> downStream=null;
+		if (args[2].equals(ClientServerProtocol.typeOnce)) downStream=new DownStreamOnce();
+		else if (args[2].equals(ClientServerProtocol.typeSplit)) downStream = new DownStreamSplit();
 
-		DataStream<Long> dataStream = env
-			.readTextFile(args[5]).setParallelism(1).slotSharingGroup("0")
-			.flatMap(new KeyGen()).setParallelism(1).startNewChain().slotSharingGroup("0")
-			.flatMap(new SkewnessDetector<>(
-				new KS(), Float.parseFloat(args[1]), Integer.parseInt(args[2]))).setParallelism(1).slotSharingGroup("0")
-			.flatMap(new Splitter()).setParallelism(3).slotSharingGroup("0")
-			.partitionCustom(new UpStreamPF<Integer>(), 1)
-			.flatMap(new DownStreamSplit()).setParallelism(Integer.parseInt(args[0])).slotSharingGroup("0")
-			.flatMap(new Tail(Integer.parseInt(args[0]), Integer.parseInt(args[2]))).setParallelism(1).slotSharingGroup("0");
-		//dataStream.writeAsText("/home/mike/Documents/o "+ String.join("-",args)+".txt").setParallelism(1);
-
-		StringBuilder s= new StringBuilder(args[6]);
-		for (int i=0; i<args.length-2; i++) s.append(args[i]).append("-");
+		StringBuilder s= new StringBuilder(args[1]);
+		for (int i=2; i<args.length; i++) s.append(args[i]).append("-");
 		s.append("bid.txt");
 		System.out.println("output file: "+s);
-		dataStream.writeAsText(s.toString()).setParallelism(1);
+		File f=new File(s.toString());
+		Files.deleteIfExists(f.toPath());
 
+
+		env
+			.socketTextStream(ClientServerProtocol.host, ClientServerProtocol.portData).setParallelism(1)
+			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
+			.flatMap(new SkewnessDetector<>(
+				new KS(), 0.1f, Integer.parseInt(args[5]))).setParallelism(1)
+			//.flatMap(new Splitter()).setParallelism(3)
+			//.partitionCustom(new UpStreamPF<Integer>(), 1)
+			//.flatMap(downStream).setParallelism(Integer.parseInt(args[3]))
+			.flatMap(new Tail(Integer.parseInt(args[3]), Integer.parseInt(args[5]))).setParallelism(1)
+			.writeAsText(s.toString()).setParallelism(1);
 
 		env.execute("Flink Streaming Java API Skeleton");
 	}

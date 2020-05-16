@@ -7,7 +7,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Collector;
 
 //deprecated
-public class Tail extends RichFlatMapFunction<Tuple5<Long, Integer, Integer, Integer, Integer>, Long> {
+public class Tail extends RichFlatMapFunction<Tuple4<Long, Integer, Integer, String>, Long> {
 	//private transient Histogram histogram;
 	private int para;
 	private long maxlatency, cnt;
@@ -17,7 +17,7 @@ public class Tail extends RichFlatMapFunction<Tuple5<Long, Integer, Integer, Int
 		cnt= start*9 /10;
 	}
 	@Override
-	public void flatMap(Tuple5<Long, Integer, Integer, Integer, Integer> value, Collector<Long> out) throws Exception {
+	public void flatMap(Tuple4<Long, Integer, Integer, String> value, Collector<Long> out) throws Exception {
 		if (cnt > 0) cnt--;
 		if (cnt<=0) {
 			long la=System.currentTimeMillis() - value.f0;

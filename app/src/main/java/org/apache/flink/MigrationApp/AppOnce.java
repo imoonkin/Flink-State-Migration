@@ -4,17 +4,13 @@ import org.apache.flink.MigrationApi.ClientServerProtocol;
 import org.apache.flink.MigrationApi.SkewnessDetector;
 import org.apache.flink.MigrationApi.UpStreamPF;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
-import java.util.Properties;
 
+import java.util.Properties;
+@Deprecated
 public class AppOnce {
 	public static void main(String[] args) throws Exception {
 		// set up the streaming execution environment
@@ -35,21 +31,16 @@ public class AppOnce {
 		env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 		env.setBufferTimeout(1);
 
-		Properties properties = new Properties();
-		properties.setProperty("bootstrap.servers", "localhost:9092");
-		FlinkKafkaConsumer<String> myConsumer=new FlinkKafkaConsumer<>("bid150000",
-			new SimpleStringSchema(), properties);
-		myConsumer.setStartFromEarliest();
 
 		DataStream<Long> dataStream = env
-			.addSource(myConsumer).setParallelism(1)
+			.socketTextStream(ClientServerProtocol.host, ClientServerProtocol.portData).setParallelism(1)
 			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
 			.flatMap(new SkewnessDetector<>(
-				new KS(), Float.parseFloat(args[1]), Integer.parseInt(args[2]))).setParallelism(1)
+				new KS(), 0.1f, Integer.parseInt(args[5]))).setParallelism(1)
 			.flatMap(new Splitter()).setParallelism(3)
 			.partitionCustom(new UpStreamPF<Integer>(), 1)
-			.flatMap(new DownStreamOnce()).setParallelism(Integer.parseInt(args[0]))
-			.flatMap(new Tail(Integer.parseInt(args[0]), 10)).setParallelism(1);
+			.flatMap(new DownStreamOnce()).setParallelism(Integer.parseInt(args[3]))
+			.flatMap(new Tail(Integer.parseInt(args[3]), Integer.parseInt(args[5]))).setParallelism(1);
 
 		StringBuilder s= new StringBuilder(args[6]);
 		for (int i=0; i<args.length-2; i++) s.append(args[i]).append("-");

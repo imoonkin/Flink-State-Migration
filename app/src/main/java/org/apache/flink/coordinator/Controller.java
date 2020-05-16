@@ -45,12 +45,12 @@ public class Controller<K> implements Runnable{
 					startID = ois.readInt();
 					System.out.println("# " + startID);
 					endID = startID + 3;
-					new Thread(new SourceCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
+					new Thread(new SourceCmd<>(ois, oos, socket, startID, endID, pfc)).start();
 				} else if (cli.contains(ClientServerProtocol.upStreamStart)) {
 					new Thread(new UpStreamCmd(ois, oos, socket, startID, endID, pfc)).start();
 
 				} else if (cli.contains(ClientServerProtocol.downStreamStart)) {//update PF,
-					new Thread(new DownStreamSplitCmd<K>(ois, oos, socket, startID, endID, pfc)).start();
+					new Thread(new DownStreamSplitCmd<>(ois, oos, socket, startID, endID, pfc)).start();
 				}
 			}
 		} catch (SocketException e) {
@@ -192,7 +192,7 @@ class DownStreamSplitCmd<K> implements Runnable {
 			String cmd="";
 			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamSplitMigrationStart;
 			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;
-			if (pfc.migrationOccurCount>0) cmd = cmd + "Silence";//TODO: silent after migration
+			//if (pfc.migrationOccurCount>0) cmd = cmd + "Silence";//TODO: silent after migration
 			oos.writeUTF(cmd);
 			oos.flush();
 			boolean needUpdate=false;

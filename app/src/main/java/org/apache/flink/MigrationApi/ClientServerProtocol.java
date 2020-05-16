@@ -5,6 +5,7 @@ public class ClientServerProtocol {
 	public static int portMigration = 8989;
 	public static int portController = 8990;
 	public static int portEntry = 8988;
+	public static int portData = 9999;
 
 	public static String typeOnce = "typeOnce";
 	public static String typeSplit="typeSplit";

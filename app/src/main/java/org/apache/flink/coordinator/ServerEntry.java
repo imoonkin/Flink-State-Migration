@@ -17,28 +17,33 @@ public class ServerEntry {
 		ServerSocket serverSocket = new ServerSocket(ClientServerProtocol.portEntry);
 		MigrationServer migrationThread=null;
 		Controller controllerThread=null;
-		//DataSender dataSourceThread=null;
+		DataSender dataSourceThread=null;
 
 		while (true) {
 			Socket socket = serverSocket.accept();
 
 			DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 			DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
-			int para = dataInputStream.readInt(), chunkNum = dataInputStream.readInt();
-			String type = dataInputStream.readUTF();
+			String[] arg = dataInputStream.readUTF().split(" ");
 
-			System.out.println("creating new servers");
+			System.out.println("creating new servers param: " + String.join(" ", arg));
+
 			HyperRouteProvider<Integer> hyperRouteProvider=null;
-			if (type.contains(ClientServerProtocol.typeOnce)) {
+			if (arg[2].contains(ClientServerProtocol.typeOnce)) {
 				hyperRouteProvider=new HyperRouteProviderOnce<>();
-			} else if (type.contains(ClientServerProtocol.typeSplit)) {
-				hyperRouteProvider=new HyperRouteProviderSplit<>(chunkNum);
+			} else if (arg[2].contains(ClientServerProtocol.typeSplit)) {
+				hyperRouteProvider=new HyperRouteProviderSplit<>(Integer.parseInt(arg[4]));
 			}
-			PFConstructor<Integer> pfc = new PFConstructor<>(30, para, 1.3f, hyperRouteProvider);
-			new Thread(migrationThread=new MigrationServer<Integer, Integer>(para, new DownStreamItemHighestPriceCombiner())).start();
+			PFConstructor<Integer> pfc = new PFConstructor<>(30, Integer.parseInt(arg[3]), 1.3f, hyperRouteProvider);
+
+			new Thread(migrationThread=new MigrationServer<Integer, Integer>(Integer.parseInt(arg[3]), new DownStreamItemHighestPriceCombiner())).start();
 			new Thread(controllerThread=new Controller<Integer>(pfc)).start();
-			//new Thread(dataSourceThread=new DataSender(dataConstructor, dataHeight, isAppRunning, isSending)).start();
+			new Thread(dataSourceThread = new DataSender(Integer.parseInt(arg[3]),
+				Integer.parseInt(arg[6]), Integer.parseInt(arg[7]), Integer.parseInt(arg[8]))).start();
+
+			dataOutputStream.writeUTF("aa");
 			System.out.println("new servers created");
+
 
 			try {
 				dataInputStream.readUTF();

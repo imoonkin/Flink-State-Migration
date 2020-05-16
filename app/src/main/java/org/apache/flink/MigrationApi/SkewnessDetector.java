@@ -13,21 +13,21 @@ import java.util.List;
 
 public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 
-	private SpaceSaving<K> spaceSaving;
+	private SkewRecorder<K> skewRecorder;
 	private List lastHK;
 	private KeySelector<T, K> keySelector;
 	private boolean migrated;
-	private int totalThreshold;
-	public SkewnessDetector(KeySelector<T, K> ks, float para, int totalThreshold) {
+	private int migrationTriggerThreshold;
+	public SkewnessDetector(KeySelector<T, K> ks, float hotKeyThreshold, int migrationTriggerThreshold) {
 		keySelector= ks;
-		spaceSaving=new SpaceSaving<>(para);
+		skewRecorder =new SkewRecorder<>(hotKeyThreshold);
 		migrated=false;
-		this.totalThreshold=totalThreshold;
+		this.migrationTriggerThreshold =migrationTriggerThreshold;
 	}
 
 	@Override
 	public void flatMap(T value, Collector<T> out) throws Exception {
-		spaceSaving.addKey(keySelector.getKey(value));
+		skewRecorder.addKey(keySelector.getKey(value));
 
 		int index=Thread.currentThread().getName().indexOf('#');
 		int barrierID;
@@ -35,7 +35,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		//System.out.println(keySelector.getKey(value));
 		//Thread.sleep(100);
 		if ( index >= 0) {
-			HashMap<K, Integer> curHK=spaceSaving.getHotKey();
+			HashMap<K, Integer> curHK= skewRecorder.getHotKey();
 			barrierID = Integer.parseInt(Thread.currentThread().getName().substring(index + 1));
 			System.out.println("Detector: " + barrierID);
 			Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
@@ -43,12 +43,12 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 			oos.writeUTF(ClientServerProtocol.sourceStart);
 			oos.writeInt(barrierID);
-			if (differentHK(curHK, barrierID, spaceSaving.getTotal())) { //in differentHK, barrierID>0 && barrierID%5==0 not needed
+			if (differentHK(curHK, barrierID, skewRecorder.getTotal())) { //in differentHK, barrierID>0 && barrierID%5==0 not needed
 				oos.writeUTF(ClientServerProtocol.sourceHotKey);
 				oos.flush();
 				if (ois.readUTF().contains(ClientServerProtocol.sourceAcceptHotKey)) {
 					oos.writeInt(curHK.size());
-					oos.writeInt(spaceSaving.getTotal());
+					oos.writeInt(skewRecorder.getTotal());
 					oos.flush();
 					for (HashMap.Entry<K, Integer> entry : curHK.entrySet()) {
 						oos.writeObject(entry.getKey());
@@ -69,7 +69,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		out.collect(value);
 	}
 	private boolean differentHK(HashMap<K, Integer> curHK, int barrierID, int total) {
-		if (!migrated && barrierID > 0 && total>totalThreshold) {
+		if (!migrated && barrierID > 0 && total> migrationTriggerThreshold) {
 			migrated=true;
 			return true;
 		}
@@ -78,13 +78,13 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 }
 
 
-class SpaceSaving<K> implements Serializable {
+class SkewRecorder<K> implements Serializable {
 	//TODO: space saving
 	private HashMap<K, Integer> hotKey;
 	private int total;
 	private float threshold;
 
-	SpaceSaving(float threshold) {
+	SkewRecorder(float threshold) {
 		hotKey=new HashMap<>();
 		total=0;
 		this.threshold=threshold;
@@ -95,7 +95,7 @@ class SpaceSaving<K> implements Serializable {
 		for (HashMap.Entry<K, Integer> entry: hotKey.entrySet()) {
 			if (((float)entry.getValue())/total>threshold)
 				above20.put(entry.getKey(), entry.getValue());
-			if (entry.getValue()>10) System.out.print(((float)entry.getValue())/total + " ");
+			//if (entry.getValue()>10) System.out.print(((float)entry.getValue())/total + " ");
 		}
 		System.out.println("Detector: "+total +" "+above20);
 		return above20;
