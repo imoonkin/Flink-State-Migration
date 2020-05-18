@@ -9,11 +9,21 @@ import java.net.Socket;
 
 public class AppEntry {
 	/**
-	@param args 0: input dir, 1: output dir, 2: type, 3: parallelism, 4: chunkNum, 5: skewTriggerLength,
-	6: rangePerNode, 7: hotKeyTimes, 8: cycle
+	@param args
+	0: input dir,
+	1: output dir,
+	2: type, (typeOnce/typeSplit)
+	3: parallelism,
+	4: chunkNum,
+	5: skewTriggerLength, number of records read to start migration
+	6: rangePerNode, key domain space per node
+	7: hotKeyTimes, hot key repeat times
+	8: cycle, number of records read to generate next group of hot keys
+	9: prepareLen, number of records read before hot key appears
+	10: epsilon, space saving parameter
 	 */
 	public static void main(String[] args) throws IOException {
-		if (args.length != 9) {
+		if (args.length != 11) {
 			System.out.println("arg number wrong");
 			return;
 		}

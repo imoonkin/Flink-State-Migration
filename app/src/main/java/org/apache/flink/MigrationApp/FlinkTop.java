@@ -51,10 +51,7 @@ package org.apache.flink.MigrationApp;
  * method, change the respective entry in the POM.xml file (simply search for 'mainClass').
  */
 public class FlinkTop {
-	/**
-	 @param args 0: input dir, 1: output dir, 2: type, 3: parallelism, 4: chunkNum, 5: skewTriggerLength,
-	 6: rangePerNode, 7: hotKeyTimes, 8: cycle
-	 */
+
 	public static void main(String[] args) throws Exception {
 		Configuration conf=new Configuration();
 
@@ -83,10 +80,10 @@ public class FlinkTop {
 			.socketTextStream(ClientServerProtocol.host, ClientServerProtocol.portData).setParallelism(1)
 			.flatMap(new KeyGen()).setParallelism(1).startNewChain()
 			.flatMap(new SkewnessDetector<>(
-				new KS(), 0.1f, Integer.parseInt(args[5]))).setParallelism(1)
-			//.flatMap(new Splitter()).setParallelism(3)
-			//.partitionCustom(new UpStreamPF<Integer>(), 1)
-			//.flatMap(downStream).setParallelism(Integer.parseInt(args[3]))
+				new KS(), Float.parseFloat(args[10]), Integer.parseInt(args[5]))).setParallelism(1)
+			.flatMap(new Splitter()).setParallelism(3)
+			.partitionCustom(new UpStreamPF<Integer>(), 1)
+			.flatMap(downStream).setParallelism(Integer.parseInt(args[3]))
 			.flatMap(new Tail(Integer.parseInt(args[3]), Integer.parseInt(args[5]))).setParallelism(1)
 			.writeAsText(s.toString()).setParallelism(1);
 

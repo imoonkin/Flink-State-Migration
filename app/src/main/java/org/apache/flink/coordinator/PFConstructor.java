@@ -9,15 +9,17 @@ class PFConstructor<K> {
 	private ArrayList<Float> operatorLoad;
 	private final int parallelism;
 	private final int maxParallelism;
-	private final float theta;
+	private final int rangePerNode;
+	final float theta;
 	private int metricCnt=0;
 
 	private int state=0; // 0:idle, 1:metric, 2:migrating
 	int migrationOccurCount; //TODO: silent after migration
 
 	private HyperRouteProvider<K> migrationSplitter;
-	PFConstructor(int maxP, int parallelism, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
-		pf = new MyPF<K>(parallelism);
+	PFConstructor(int maxP, int parallelism, int rangePerNode, float alpha, HyperRouteProvider<K> hyperRouteProvider) {
+		this.rangePerNode=rangePerNode;
+		pf = new MyPF<K>(parallelism, rangePerNode);
 		metric = new ArrayList<>();
 		operatorLoad = new ArrayList<>();
 		for (int i=0; i<maxP; i++) {
@@ -36,7 +38,7 @@ class PFConstructor<K> {
 
 	void updatePFnew() {
 		//new hb
-		MyConsistentHash<K> newHb=new MyConsistentHash<>(parallelism);
+		MyConsistentHash<K> newHb=new MyConsistentHash<>(parallelism, rangePerNode);
 
 		//Algorithm 1 => new hyper route
 		Set<K> D_o = new HashSet<>(), D_a=new HashSet<>();

@@ -12,15 +12,21 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public class Controller<K> implements Runnable{
 	private PFConstructor<K> pfc;
 	private boolean isRunning;
 	private ServerSocket serverSocket;
+	private BlockingQueue<Integer> stateSizeQueue;
+	private List<Float> imbalance;
 	Controller(PFConstructor<K> pfc) {
 		this.pfc=pfc;
 		this.isRunning=true;
 		serverSocket=null;
+		stateSizeQueue = new LinkedBlockingDeque<>(5);
+		imbalance = new LinkedList<>();
 	}
 
 	void setStop() throws IOException {
@@ -50,15 +56,19 @@ public class Controller<K> implements Runnable{
 					new Thread(new UpStreamCmd(ois, oos, socket, startID, endID, pfc)).start();
 
 				} else if (cli.contains(ClientServerProtocol.downStreamStart)) {//update PF,
-					new Thread(new DownStreamSplitCmd<>(ois, oos, socket, startID, endID, pfc)).start();
+					new Thread(new DownStreamSplitCmd<>(ois, oos, socket, startID, endID, pfc,
+						stateSizeQueue, imbalance)).start();
 				}
 			}
 		} catch (SocketException e) {
-			System.out.println("last controller closed");
+			System.out.println("last controller closed ");
+
 		} catch (Exception e) {
-			System.out.println("controller error");
+			System.out.println("controller error ");
 			e.printStackTrace();
 		} finally {
+			imbalance.forEach((x) -> System.out.format("%.4f ", x)); //print all the way imbalance
+			System.out.println();
 			if (serverSocket != null) {
 				try {
 					serverSocket.close();
@@ -172,15 +182,20 @@ class DownStreamSplitCmd<K> implements Runnable {
 	private Socket socket;
 	private int barrierID, startID, endID;
 	private PFConstructor<K> pfc;
+	private final BlockingQueue<Integer> queue;
+	private List<Float> imbalance;
 
 	DownStreamSplitCmd(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
-					   int start, int end, PFConstructor<K> pf) {
+					   int start, int end, PFConstructor<K> pf, BlockingQueue<Integer> queue,
+					   List<Float> imbalance) {
 		this.oos = oos;
 		this.ois = ois;
 		socket = s;
 		startID=start;
 		endID=end;
 		pfc=pf;
+		this.queue=queue;
+		this.imbalance = imbalance;
 	}
 	@Override
 	public void run() {
@@ -189,6 +204,19 @@ class DownStreamSplitCmd<K> implements Runnable {
 			barrierID = ois.readInt();
 			int index=ois.readInt(), stateSize=ois.readInt();
 			System.out.println("D: "+index+" ["+stateSize+"]");
+			synchronized (queue) {
+				queue.offer(stateSize);
+				if (queue.size() >= 4) {
+					int max = 0, min = Integer.MAX_VALUE, avg = 0;
+					while (!queue.isEmpty()) {
+						int top = queue.poll();
+						max = Math.max(max, top);
+						min = Math.min(min, top);
+						avg += top;
+					}
+					imbalance.add((max - min) / (pfc.theta * avg));
+				}
+			}
 			String cmd="";
 			if (pfc.isMigrating())	cmd=cmd+ClientServerProtocol.downStreamSplitMigrationStart;
 			if (pfc.isMetric()) cmd=cmd+ClientServerProtocol.downStreamMetricStart;

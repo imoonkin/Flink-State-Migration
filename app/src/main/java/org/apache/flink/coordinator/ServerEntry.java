@@ -2,6 +2,7 @@ package org.apache.flink.coordinator;
 
 import org.apache.flink.MigrationApi.ClientServerProtocol;
 import org.apache.flink.MigrationApi.Combiner;
+import org.apache.flink.api.java.tuple.Tuple2;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -34,12 +35,15 @@ public class ServerEntry {
 			} else if (arg[2].contains(ClientServerProtocol.typeSplit)) {
 				hyperRouteProvider=new HyperRouteProviderSplit<>(Integer.parseInt(arg[4]));
 			}
-			PFConstructor<Integer> pfc = new PFConstructor<>(30, Integer.parseInt(arg[3]), 1.3f, hyperRouteProvider);
+			PFConstructor<Integer> pfc = new PFConstructor<>(30, Integer.parseInt(arg[3]),
+				Integer.parseInt(arg[6]), 1.3f, hyperRouteProvider);
 
-			new Thread(migrationThread=new MigrationServer<Integer, Integer>(Integer.parseInt(arg[3]), new DownStreamItemHighestPriceCombiner())).start();
+			new Thread(migrationThread=new MigrationServer<Integer, Tuple2<Integer, String>>(
+				Integer.parseInt(arg[3]), new DownStreamValueCombiner())).start();
 			new Thread(controllerThread=new Controller<Integer>(pfc)).start();
 			new Thread(dataSourceThread = new DataSender(Integer.parseInt(arg[3]),
-				Integer.parseInt(arg[6]), Integer.parseInt(arg[7]), Integer.parseInt(arg[8]))).start();
+				Integer.parseInt(arg[6]), Integer.parseInt(arg[7]), Integer.parseInt(arg[8]),
+				Integer.parseInt(arg[9]))).start();
 
 			dataOutputStream.writeUTF("aa");
 			System.out.println("new servers created");
@@ -60,13 +64,13 @@ public class ServerEntry {
 }
 
 
-class DownStreamItemHighestPriceCombiner implements Combiner<Integer>, Serializable {
+class DownStreamValueCombiner implements Combiner<Tuple2<Integer, String>>, Serializable {
 	@Override
-	public Integer addOne(Integer t1, Integer t2) {
-		return t1.compareTo(t2)>0? t1 : t2; //+" "+t1.f1
+	public Tuple2<Integer, String> addOne(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
+		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1); //+" "+t1.f1
 	}
 	@Override
-	public Integer addAll(Integer t1, Integer t2) {
-		return t1.compareTo(t2)>0? t1 : t2;//+t1.f1
+	public Tuple2<Integer, String> addAll(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
+		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1);//+t1.f1
 	}
 }

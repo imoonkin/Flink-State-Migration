@@ -9,10 +9,10 @@ public class MyPF<K> implements Serializable, Partitioner<K> {
 	private MyConsistentHash<K> hb;
 	private HashMap<K, Integer> hyperRoute;
 	private int parallelism;
-	MyPF(int parallelism) {
+	MyPF(int parallelism, int rangePerNode) {
 		this.parallelism=parallelism;
 		hyperRoute=new HashMap<>();
-		hb=new MyConsistentHash<>(parallelism);
+		hb=new MyConsistentHash<>(parallelism, rangePerNode);
 	}
 	public int partition(K key, int n) {
 		int tmp=ha(key);

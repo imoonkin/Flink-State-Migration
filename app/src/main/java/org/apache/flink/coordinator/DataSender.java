@@ -18,12 +18,14 @@ public class DataSender implements Runnable{
 	private String valueUnit;
 	private int hotKeyTimes;
 	private int cycle;
+	private int prepareLen;
 
-	DataSender(int parallel, int rangePerNode, int hotKeyTimes, int cycle) {
+	DataSender(int parallel, int rangePerNode, int hotKeyTimes, int cycle, int prepareLen) {
 		this.parallel=parallel;
 		this.rangePerNode=rangePerNode;
 		this.hotKeyTimes=hotKeyTimes;
 		this.cycle=cycle;
+		this.prepareLen=prepareLen;
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < 100; i++) sb.append("A");
 		valueUnit=sb.toString();
@@ -52,9 +54,13 @@ public class DataSender implements Runnable{
 				out.flush();
 
 
-
 				cnt+=parallel+hotKeys.size()*hotKeyTimes;
-				if (cnt > cycle) {
+				if (prepareLen > 0 && cnt > prepareLen) {
+					prepareLen=-1;
+					cnt=0;
+					hotKeys=hotKeyGen();
+				}
+				if (cnt > cycle && prepareLen<0) {
 					cnt=0;
 					hotKeys=hotKeyGen();
 				}
@@ -110,7 +116,7 @@ public class DataSender implements Runnable{
 	}
 
 	public static void main1(String[] args) throws IOException {
-		DataSender ds = new DataSender(4, 10, 6, 1000);
+		DataSender ds = new DataSender(4, 10, 6, 1000, 100);
 		new Thread(ds).start();
 		SpaceSaving<Integer> ss=new SpaceSaving<>(0.05f);
 		Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portData);
@@ -133,7 +139,7 @@ public class DataSender implements Runnable{
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-		DataSender ds = new DataSender(4, 10, 6, 1000);
+		DataSender ds = new DataSender(4, 10, 6, 1000, 100);
 		ds.run();
 	}
 

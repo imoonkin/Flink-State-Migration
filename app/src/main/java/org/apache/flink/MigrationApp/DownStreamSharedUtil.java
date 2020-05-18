@@ -71,7 +71,7 @@ class DownStreamValueSelector implements KeySelector<Tuple4<Long, Integer, Integ
 class DownStreamSizeSelector implements SizeCalculator<Integer, Tuple2<Integer, String>>, Serializable {
 	@Override
 	public int size(Integer key, Tuple2<Integer, String> value) {
-		return key * value.f0;
+		return value.f0;
 	}
 }
 

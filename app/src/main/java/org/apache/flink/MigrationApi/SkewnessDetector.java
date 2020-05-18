@@ -37,7 +37,7 @@ public class SkewnessDetector<T, K> extends RichFlatMapFunction<T, T> {
 		if ( index >= 0) {
 			HashMap<K, Integer> curHK= skewRecorder.getHotKey();
 			barrierID = Integer.parseInt(Thread.currentThread().getName().substring(index + 1));
-			System.out.println("Detector: " + barrierID);
+			System.out.println("Detector: #" + barrierID);
 			Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portController);
 			ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
@@ -97,7 +97,7 @@ class SkewRecorder<K> implements Serializable {
 				above20.put(entry.getKey(), entry.getValue());
 			//if (entry.getValue()>10) System.out.print(((float)entry.getValue())/total + " ");
 		}
-		System.out.println("Detector: "+total +" "+above20);
+		System.out.println("hotKeys: "+total +" "+above20);
 		return above20;
 	}
 	void addKey(K key) {
@@ -109,5 +109,9 @@ class SkewRecorder<K> implements Serializable {
 
 	int getTotal() {
 		return total;
+	}
+
+	public void setThreshold(float threshold) {
+		this.threshold = threshold;
 	}
 }
