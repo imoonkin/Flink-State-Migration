@@ -21,12 +21,14 @@ public class Controller<K> implements Runnable{
 	private ServerSocket serverSocket;
 	private BlockingQueue<Integer> stateSizeQueue;
 	private List<Float> imbalance;
-	Controller(PFConstructor<K> pfc) {
+	private int parallel;
+	Controller(PFConstructor<K> pfc, int parallel) {
 		this.pfc=pfc;
 		this.isRunning=true;
 		serverSocket=null;
-		stateSizeQueue = new LinkedBlockingDeque<>(5);
+		stateSizeQueue = new LinkedBlockingDeque<>();
 		imbalance = new LinkedList<>();
+		this.parallel=parallel;
 	}
 
 	void setStop() throws IOException {
@@ -57,7 +59,7 @@ public class Controller<K> implements Runnable{
 
 				} else if (cli.contains(ClientServerProtocol.downStreamStart)) {//update PF,
 					new Thread(new DownStreamSplitCmd<>(ois, oos, socket, startID, endID, pfc,
-						stateSizeQueue, imbalance)).start();
+						stateSizeQueue, imbalance, parallel)).start();
 				}
 			}
 		} catch (SocketException e) {
@@ -68,7 +70,7 @@ public class Controller<K> implements Runnable{
 			e.printStackTrace();
 		} finally {
 			imbalance.forEach((x) -> System.out.format("%.4f ", x)); //print all the way imbalance
-			System.out.println();
+			System.out.println(parallel);
 			if (serverSocket != null) {
 				try {
 					serverSocket.close();
@@ -184,10 +186,11 @@ class DownStreamSplitCmd<K> implements Runnable {
 	private PFConstructor<K> pfc;
 	private final BlockingQueue<Integer> queue;
 	private List<Float> imbalance;
+	private int parallel;
 
 	DownStreamSplitCmd(ObjectInputStream ois, ObjectOutputStream oos, Socket s,
 					   int start, int end, PFConstructor<K> pf, BlockingQueue<Integer> queue,
-					   List<Float> imbalance) {
+					   List<Float> imbalance, int parallel) {
 		this.oos = oos;
 		this.ois = ois;
 		socket = s;
@@ -196,6 +199,7 @@ class DownStreamSplitCmd<K> implements Runnable {
 		pfc=pf;
 		this.queue=queue;
 		this.imbalance = imbalance;
+		this.parallel=parallel;
 	}
 	@Override
 	public void run() {
@@ -206,7 +210,7 @@ class DownStreamSplitCmd<K> implements Runnable {
 			System.out.println("D: "+index+" ["+stateSize+"]");
 			synchronized (queue) {
 				queue.offer(stateSize);
-				if (queue.size() >= 4) {
+				if (queue.size() >= parallel) {
 					int max = 0, min = Integer.MAX_VALUE, avg = 0;
 					while (!queue.isEmpty()) {
 						int top = queue.poll();

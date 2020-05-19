@@ -75,6 +75,7 @@ class HyperRouteProviderSplit<K> implements HyperRouteProvider<K>{
 			curFrequency += head.f2;
 		}
 		//System.out.println(curChunkNum+" "+ curFrequency+" q:"+queue+" "+curRoute);
+		System.out.println("spliter: "+curFrequency+"/"+totalFrequency);
 		return curRoute;
 	}
 }

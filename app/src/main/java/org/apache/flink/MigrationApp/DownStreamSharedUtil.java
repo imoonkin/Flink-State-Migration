@@ -47,11 +47,11 @@ class DownStreamSplit extends AbstractDownStreamSplit<Tuple4<Long, Integer, Inte
 class DownStreamValueCombiner implements Combiner<Tuple2<Integer, String>>, Serializable {
 	@Override
 	public Tuple2<Integer, String> addOne(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
-		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1); //+" "+t1.f1
+		return Tuple2.of(t1.f0 + t2.f0, t1.f1 +" "+ t2.f1); //+" "+t1.f1
 	}
 	@Override
 	public Tuple2<Integer, String> addAll(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
-		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1);//+t1.f1
+		return Tuple2.of(t1.f0 + t2.f0, t1.f1 +" "+ t2.f1);//+t1.f1
 	}
 }
 class DownStreamKeySelector implements KeySelector<Tuple4<Long, Integer, Integer, String>,

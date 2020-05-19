@@ -19,13 +19,15 @@ public class DataSender implements Runnable{
 	private int hotKeyTimes;
 	private int cycle;
 	private int prepareLen;
+	private float hotKeyPercent;
 
-	DataSender(int parallel, int rangePerNode, int hotKeyTimes, int cycle, int prepareLen) {
+	DataSender(int parallel, int rangePerNode, int hotKeyTimes, int cycle, int prepareLen, float hotKeyPercent) {
 		this.parallel=parallel;
 		this.rangePerNode=rangePerNode;
 		this.hotKeyTimes=hotKeyTimes;
 		this.cycle=cycle;
 		this.prepareLen=prepareLen;
+		this.hotKeyPercent=hotKeyPercent;
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < 100; i++) sb.append("A");
 		valueUnit=sb.toString();
@@ -100,7 +102,7 @@ public class DataSender implements Runnable{
 
 		//got hot operators, now gen hot keys
 
-		int hotKeyNumPerOP=(int)(parallel*rangePerNode*0.1)/hotOperator.size(); //evenly distribute
+		int hotKeyNumPerOP=(int)(parallel*rangePerNode*hotKeyPercent)/hotOperator.size(); //evenly distribute
 		int key=-1;
 		for (Integer op : hotOperator) {
 			i=0;
@@ -116,7 +118,7 @@ public class DataSender implements Runnable{
 	}
 
 	public static void main1(String[] args) throws IOException {
-		DataSender ds = new DataSender(4, 10, 6, 1000, 100);
+		DataSender ds = new DataSender(4, 10, 6, 1000, 100, 0.1f);
 		new Thread(ds).start();
 		SpaceSaving<Integer> ss=new SpaceSaving<>(0.05f);
 		Socket socket = new Socket(ClientServerProtocol.host, ClientServerProtocol.portData);
@@ -139,7 +141,7 @@ public class DataSender implements Runnable{
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-		DataSender ds = new DataSender(4, 10, 6, 1000, 100);
+		DataSender ds = new DataSender(4, 10, 6, 1000, 100, 0.1f);
 		ds.run();
 	}
 

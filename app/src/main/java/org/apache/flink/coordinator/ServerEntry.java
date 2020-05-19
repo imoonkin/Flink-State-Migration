@@ -40,10 +40,10 @@ public class ServerEntry {
 
 			new Thread(migrationThread=new MigrationServer<Integer, Tuple2<Integer, String>>(
 				Integer.parseInt(arg[3]), new DownStreamValueCombiner())).start();
-			new Thread(controllerThread=new Controller<Integer>(pfc)).start();
+			new Thread(controllerThread=new Controller<Integer>(pfc, Integer.parseInt(arg[3]))).start();
 			new Thread(dataSourceThread = new DataSender(Integer.parseInt(arg[3]),
 				Integer.parseInt(arg[6]), Integer.parseInt(arg[7]), Integer.parseInt(arg[8]),
-				Integer.parseInt(arg[9]))).start();
+				Integer.parseInt(arg[9]), Float.parseFloat(arg[11]))).start();
 
 			dataOutputStream.writeUTF("aa");
 			System.out.println("new servers created");
@@ -63,14 +63,13 @@ public class ServerEntry {
 	}
 }
 
-
 class DownStreamValueCombiner implements Combiner<Tuple2<Integer, String>>, Serializable {
 	@Override
 	public Tuple2<Integer, String> addOne(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
-		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1); //+" "+t1.f1
+		return Tuple2.of(t1.f0 + t2.f0, t1.f1 +" "+ t2.f1); //+" "+t1.f1
 	}
 	@Override
 	public Tuple2<Integer, String> addAll(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
-		return Tuple2.of(t1.f0 + t2.f0, t1.f0 + t2.f1);//+t1.f1
+		return Tuple2.of(t1.f0 + t2.f0, t1.f1 +" "+ t2.f1);//+t1.f1
 	}
 }

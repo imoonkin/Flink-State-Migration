@@ -55,8 +55,8 @@ public class FlinkTop {
 	public static void main(String[] args) throws Exception {
 		Configuration conf=new Configuration();
 
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		//final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		env.enableCheckpointing(5000);
 		env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);

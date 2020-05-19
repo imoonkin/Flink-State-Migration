@@ -21,9 +21,10 @@ public class AppEntry {
 	8: cycle, number of records read to generate next group of hot keys
 	9: prepareLen, number of records read before hot key appears
 	10: epsilon, space saving parameter
+	11: hotKeyPercent, for data sender
 	 */
 	public static void main(String[] args) throws IOException {
-		if (args.length != 11) {
+		if (args.length != 12) {
 			System.out.println("arg number wrong");
 			return;
 		}
